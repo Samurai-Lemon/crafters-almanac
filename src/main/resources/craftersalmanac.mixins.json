@@ -5,10 +5,12 @@
 	"client": [
 		"AbstractContainerScreenAccessor",
 		"AbstractContainerScreenMixin",
+		"GuiGraphicsMixin",
 		"ImageButtonAccessor",
 		"KeyboardHandlerMixin",
+		"MouseHandlerMixin",
 		"PotionBrewingAccessor",
-		"RecipeBookComponentMixin",
+		"ScreenMixin",
 		"SmithingTransformRecipeAccessor"
 	],
 	"injectors": {

@@ -27,6 +27,8 @@ public final class RecipeView {
 	private final Map<Category, Integer> counts = new TreeMap<>();
 	/** Null for the favorites view, which shows everything in one list, and when there are no recipes. */
 	public Category selected;
+	/** First recipe tab shown, when there are more tabs than fit down the side of the book. */
+	public int tabScroll;
 	/** The favorites view's pages: all favorites in the order they were added, not split by category. */
 	private final List<List<Display>> favoritePages;
 	public int page;

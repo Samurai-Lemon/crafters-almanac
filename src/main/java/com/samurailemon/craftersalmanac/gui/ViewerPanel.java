@@ -78,13 +78,14 @@ public class ViewerPanel extends AbstractWidget {
 	private static final ResourceLocation FAVORITE = ResourceLocation.fromNamespaceAndPath("craftersalmanac", "favorite");
 	private static final int FAVORITE_SIZE = 9;
 	private static final int TAB_HEIGHT = 27;
+	/** Recipe tabs that fit below the All Items and Favorites tabs. More than this and the last becomes "+N". */
+	private static final int CATEGORY_TABS = 4;
 	/** Spacing between the lines of a heading that wraps. */
 	public static final int HEADING_LINE = 10;
 	private static final String ELLIPSIS = "...";
 	private static final int MATERIAL_CELL = 18;
 	private static final int MATERIAL_COLS = 6;
 	private static final int MATERIAL_ROWS = 4;
-	private static final String SIGMA = "\u03A3";
 
 	/** Something under the mouse: an item, or a button with an optional tooltip. Rebuilt every frame. */
 	private record Hit(int x, int y, int w, int h, ItemStack stack, List<Component> extra, Component tooltip, Runnable action) {
@@ -153,11 +154,11 @@ public class ViewerPanel extends AbstractWidget {
 
 	/**
 	 * How far to move a centered container right so the open panel fits on its left, like the vanilla recipe
-	 * book does. The panel and container (with any extras sticking out of it) are centered together. Returns 0 if
-	 * they can't both fit, or the viewer is off for this screen.
+	 * book does (see ScreenShift). The panel and container (with any extras sticking out of it) are centered
+	 * together. Returns 0 if they can't both fit, the panel isn't showing, or the viewer is off for this screen.
 	 */
 	public static int containerOffset(Screen screen, int screenWidth, int leftPos, int imageWidth) {
-		if (ViewerState.isHidden() || screen == null || ScreenSupport.isDisabled(screen)) return 0;
+		if (screen == null || !ViewerState.isShowing() || ScreenSupport.isDisabled(screen)) return 0;
 		ScreenSupport.Extras extras = ScreenSupport.extras(screen);
 		int total = TAB_OUT + WIDTH + GAP + extras.left() + imageWidth + extras.right();
 		int newLeftPos = Math.max((screenWidth - total) / 2, 0) + TAB_OUT + WIDTH + GAP + extras.left();
@@ -165,13 +166,16 @@ public class ViewerPanel extends AbstractWidget {
 		return Math.max(newLeftPos - leftPos, 0);
 	}
 
-	/** Recomputed every frame and before input, because the container moves when the vanilla recipe book opens. */
+	/**
+	 * Recomputed every frame and before input. Positions are in the screen's own layout; the whole screen, panel
+	 * included, is drawn shifted right by ScreenShift to make room.
+	 */
 	private void layout() {
 		AbstractContainerScreenAccessor container = (AbstractContainerScreenAccessor) screen;
 		bookX = container.rbv$getLeftPos() - ScreenSupport.extras(screen).left() - GAP - WIDTH;
 		bookY = Mth.clamp(container.rbv$getTopPos() + (container.rbv$getImageHeight() - HEIGHT) / 2, 2, Math.max(2, screen.height - HEIGHT - 2));
 		// Not enough room beside the container (very high GUI scale): hide rather than cover the inventory.
-		shown = ViewerState.isShowing() && bookX >= TAB_OUT;
+		shown = ViewerState.isShowing() && bookX + ScreenShift.of(screen) >= TAB_OUT;
 		setPosition(bookX - TAB_OUT, bookY);
 		search.setPosition(bookX + 25, bookY + 13);
 	}
@@ -201,26 +205,39 @@ public class ViewerPanel extends AbstractWidget {
 		RecipeView view = ViewerState.view;
 		boolean calculator = ViewerState.materials != null;
 		List<Category> categories = view == null || calculator ? List.of() : view.categories;
-		int count = 2 + categories.size();
-		// Squeeze the tabs together when there are more than fit down the side of the book.
-		int step = Math.min(TAB_HEIGHT, (HEIGHT - 3 - TAB_HEIGHT) / (count - 1));
 
-		renderTab(g, 0, step, ALL_ITEMS_ICON, view == null && !calculator, Component.translatable("craftersalmanac.tab.all_items"), ViewerState::browse);
-		renderTab(g, 1, step, null, view != null && view.favorites && !calculator, Component.translatable("craftersalmanac.tab.favorites"), ViewerState::showFavorites);
-		for (int i = 0; i < categories.size(); i++) {
-			Category category = categories.get(i);
+		renderTab(g, 0, ALL_ITEMS_ICON, null, view == null && !calculator, Component.translatable("craftersalmanac.tab.all_items"), ViewerState::browse);
+		renderTab(g, 1, null, null, view != null && view.favorites && !calculator, Component.translatable("craftersalmanac.tab.favorites"), ViewerState::showFavorites);
+		int count = categories.size();
+		if (count == 0) return;
+		// Modpacks can give one item recipes in a dozen machine types. Show a few tabs at a time, the last spot
+		// becoming "+N" to show the next few (the mouse wheel over the tabs scrolls them too).
+		boolean overflow = count > CATEGORY_TABS;
+		int shownTabs = overflow ? CATEGORY_TABS - 1 : count;
+		view.tabScroll = Math.floorMod(view.tabScroll, count);
+		for (int i = 0; i < shownTabs; i++) {
+			Category category = categories.get((view.tabScroll + i) % count);
 			Component tooltip = Component.empty().append(category.title()).append(" (" + view.count(category) + ")");
-			renderTab(g, i + 2, step, category.icon, view.selected == category, tooltip, () -> view.select(category));
+			renderTab(g, i + 2, category.icon, null, view.selected == category, tooltip, () -> view.select(category));
+		}
+		if (overflow) {
+			Component tooltip = Component.translatable("craftersalmanac.tab.more", count - shownTabs, count);
+			renderTab(g, CATEGORY_TABS + 1, null, "+" + (count - shownTabs), false, tooltip, () -> view.tabScroll += shownTabs);
 		}
 	}
 
-	/** A null icon means the favorites tab, which draws our star at its real size, centered where an item icon goes. */
-	private void renderTab(GuiGraphics g, int index, int step, ItemStack icon, boolean selected, Component tooltip, Runnable action) {
+	/**
+	 * One tab down the side of the book, showing an item icon, a short label, or (with neither) our star for the
+	 * favorites tab, drawn at its real size where an item icon goes.
+	 */
+	private void renderTab(GuiGraphics g, int index, ItemStack icon, String label, boolean selected, Component tooltip, Runnable action) {
 		int x = bookX - 30 + (selected ? -2 : 0);
-		int y = bookY + 3 + step * index;
+		int y = bookY + 3 + TAB_HEIGHT * index;
 		g.blitSprite(selected ? TAB_SELECTED : TAB, x, y, 35, TAB_HEIGHT);
 		if (icon != null) {
 			g.renderFakeItem(icon, x + 9, y + 5);
+		} else if (label != null) {
+			g.drawString(font, label, x + 17 - font.width(label) / 2, y + 9, 0xFFFFFFFF, true);
 		} else {
 			int inset = (16 - FAVORITE_SIZE) / 2;
 			g.blitSprite(FAVORITE, x + 9 + inset, y + 5 + inset, FAVORITE_SIZE, FAVORITE_SIZE);
@@ -351,13 +368,13 @@ public class ViewerPanel extends AbstractWidget {
 		return y;
 	}
 
-	/** The "Σ" button that opens the materials calculator for a crafting recipe. */
+	/** The plain button (left of the fill button) that opens the materials calculator for a crafting recipe. */
 	private void renderMaterialsButton(GuiGraphics g, Display display, int x, int y, int mouseX, int mouseY) {
 		Hit hit = Hit.button(x, y, TRANSFER_SIZE, TRANSFER_SIZE, Component.translatable("craftersalmanac.materials.button"),
 				List.of(Component.translatable("craftersalmanac.materials.button.hint").withStyle(ChatFormatting.GRAY)),
 				() -> ViewerState.showMaterials(display, RecipeTransfer.available(screen.getMenu())));
 		hits.add(hit);
-		smallButton(g, hit, SIGMA, 0xFFFFFFFF, mouseX, mouseY);
+		g.blitSprite(hit.contains(mouseX, mouseY) ? BUTTON_HIGHLIGHTED : BUTTON, hit.x(), hit.y(), hit.w(), hit.h());
 	}
 
 	/** An 11x11 vanilla button with one character on it. */
@@ -528,7 +545,7 @@ public class ViewerPanel extends AbstractWidget {
 		}
 	}
 
-	/** Checks the last-drawn first, so squeezed tabs that overlap pick the one on top. */
+	/** Checks the last-drawn first, so whatever is drawn on top gets the click. */
 	private Hit hitAt(double mouseX, double mouseY) {
 		for (int i = hits.size() - 1; i >= 0; i--) {
 			if (hits.get(i).contains(mouseX, mouseY)) return hits.get(i);
@@ -586,6 +603,12 @@ public class ViewerPanel extends AbstractWidget {
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (!isMouseOver(mouseX, mouseY) || scrollY == 0) return false;
+		RecipeView view = ViewerState.view;
+		// Over the tabs (left of the book), scroll through recipe tabs when there are more than fit.
+		if (mouseX < bookX && view != null && ViewerState.materials == null && view.categories.size() > CATEGORY_TABS) {
+			view.tabScroll += scrollY > 0 ? -1 : 1;
+			return true;
+		}
 		turnPage(scrollY > 0 ? -1 : 1);
 		return true;
 	}
@@ -624,8 +647,21 @@ public class ViewerPanel extends AbstractWidget {
 		return hit == null ? ItemStack.EMPTY : hit.stack();
 	}
 
-	/** Called after the whole screen has rendered so tooltips sit above the container's items. */
-	public void renderTooltip(GuiGraphics g, int mouseX, int mouseY) {
+	/**
+	 * Called after the whole screen has rendered (with the real mouse position) so tooltips sit above the
+	 * container's items. Applies the screen's shift itself, since it runs after the shifted drawing has ended.
+	 */
+	public void renderTooltip(GuiGraphics g, int realMouseX, int mouseY) {
+		int shift = ScreenShift.of(screen);
+		g.pose().pushPose();
+		g.pose().translate(shift, 0, 0);
+		ScreenShift.drawing = shift;
+		renderShiftedTooltip(g, realMouseX - shift, mouseY);
+		ScreenShift.drawing = 0;
+		g.pose().popPose();
+	}
+
+	private void renderShiftedTooltip(GuiGraphics g, int mouseX, int mouseY) {
 		if (!shown || !screen.getMenu().getCarried().isEmpty()) return;
 		Hit hit = hitAt(mouseX, mouseY);
 		if (hit == null) return;

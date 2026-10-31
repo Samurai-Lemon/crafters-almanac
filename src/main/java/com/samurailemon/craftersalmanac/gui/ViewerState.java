@@ -139,5 +139,7 @@ public final class ViewerState {
 	public static void reset() {
 		browse();
 		browsePage = 0;
+		// A release we were waiting for may never have come (e.g. the screen closed first).
+		swallowNextRelease = false;
 	}
 }

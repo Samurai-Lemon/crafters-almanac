@@ -33,7 +33,7 @@ public class ViewerButton extends AbstractWidget {
 		this.screen = screen;
 		this.vanillaButton = vanillaButton;
 		this.replacesVanilla = replacesVanilla;
-		setTooltip(Tooltip.create(Component.translatable("craftersalmanac.button.tooltip")));
+		setTooltip(Tooltip.create(getMessage()));
 		layout();
 	}
 
@@ -98,13 +98,14 @@ public class ViewerButton extends AbstractWidget {
 		if (!visible || !active || !isMouseOver(mouseX, mouseY)) return false;
 		if (button == 0) {
 			ViewerState.toggle();
+			ViewerState.swallowNextRelease = true;
 		} else if (button == 1) {
+			// The release lands on the settings screen, so it isn't marked as ours.
 			Minecraft.getInstance().setScreen(new ConfigScreen(screen));
 		} else {
 			return false;
 		}
 		playDownSound(Minecraft.getInstance().getSoundManager());
-		ViewerState.swallowNextRelease = true;
 		return true;
 	}
 

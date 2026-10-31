@@ -1,5 +1,6 @@
 package com.samurailemon.craftersalmanac.recipe;
 
+import com.mojang.logging.LogUtils;
 import com.samurailemon.craftersalmanac.mixin.PotionBrewingAccessor;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.Holder;
@@ -12,6 +13,7 @@ import net.minecraft.world.item.alchemy.PotionBrewing;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,6 +28,8 @@ import java.util.Set;
  * They get made-up IDs under our namespace so they can be favorited.
  */
 public final class ExtraRecipes {
+	private static final Logger LOGGER = LogUtils.getLogger();
+
 	private ExtraRecipes() {
 	}
 
@@ -50,14 +54,19 @@ public final class ExtraRecipes {
 		List<PotionBrewing.Mix<Potion>> potionMixes = mixes.rbv$getPotionMixes();
 		for (int i = 0; i < potionMixes.size(); i++) {
 			PotionBrewing.Mix<Potion> mix = potionMixes.get(i);
-			brewable.add(mix.from());
-			brewable.add(mix.to());
-			for (Item container : containers) {
-				ResourceLocation id = id("brewing/" + i + "/" + BuiltInRegistries.ITEM.getKey(container).getPath());
-				add(displays, DisplayFactory.brewing(id,
-						List.of(PotionContents.createItemStack(container, mix.from())),
-						List.of(mix.ingredient().getItems()),
-						List.of(PotionContents.createItemStack(container, mix.to()))));
+			try {
+				for (Item container : containers) {
+					ResourceLocation id = id("brewing/" + i + "/" + BuiltInRegistries.ITEM.getKey(container).getPath());
+					add(displays, DisplayFactory.brewing(id,
+							List.of(PotionContents.createItemStack(container, mix.from())),
+							List.of(mix.ingredient().getItems()),
+							List.of(PotionContents.createItemStack(container, mix.to()))));
+				}
+				brewable.add(mix.from());
+				brewable.add(mix.to());
+			} catch (RuntimeException | LinkageError e) {
+				// One broken modded potion shouldn't hide the rest of brewing.
+				LOGGER.debug("Skipping brewing recipe {}", i, e);
 			}
 		}
 
@@ -66,13 +75,17 @@ public final class ExtraRecipes {
 		List<PotionBrewing.Mix<Item>> containerMixes = mixes.rbv$getContainerMixes();
 		for (int i = 0; i < containerMixes.size(); i++) {
 			PotionBrewing.Mix<Item> mix = containerMixes.get(i);
-			List<ItemStack> from = new ArrayList<>();
-			List<ItemStack> to = new ArrayList<>();
-			for (Holder<Potion> potion : brewable) {
-				from.add(PotionContents.createItemStack(mix.from().value(), potion));
-				to.add(PotionContents.createItemStack(mix.to().value(), potion));
+			try {
+				List<ItemStack> from = new ArrayList<>();
+				List<ItemStack> to = new ArrayList<>();
+				for (Holder<Potion> potion : brewable) {
+					from.add(PotionContents.createItemStack(mix.from().value(), potion));
+					to.add(PotionContents.createItemStack(mix.to().value(), potion));
+				}
+				add(displays, DisplayFactory.brewing(id("brewing/container/" + i), from, List.of(mix.ingredient().getItems()), to));
+			} catch (RuntimeException | LinkageError e) {
+				LOGGER.debug("Skipping brewing container recipe {}", i, e);
 			}
-			add(displays, DisplayFactory.brewing(id("brewing/container/" + i), from, List.of(mix.ingredient().getItems()), to));
 		}
 	}
 

@@ -46,7 +46,17 @@ public final class RecipeTransfer {
 	private RecipeTransfer() {
 	}
 
+	/** Runs every frame for each recipe on the page, and calls into the recipe's (possibly modded) code. */
 	public static Check check(Display display, AbstractContainerMenu menu) {
+		try {
+			return checkUnsafe(display, menu);
+		} catch (RuntimeException | LinkageError e) {
+			// A broken modded recipe just loses its fill button instead of crashing the game while drawing.
+			return UNSUPPORTED;
+		}
+	}
+
+	private static Check checkUnsafe(Display display, AbstractContainerMenu menu) {
 		LocalPlayer player = Minecraft.getInstance().player;
 		RecipeHolder<?> holder = holder(display);
 		if (player == null || holder == null || !(menu instanceof RecipeBookMenu<?, ?> recipeMenu) || !accepts(recipeMenu, display, holder)) {
@@ -83,6 +93,8 @@ public final class RecipeTransfer {
 			case FURNACE -> category == Category.SMELTING;
 			case BLAST_FURNACE -> category == Category.BLASTING;
 			case SMOKER -> category == Category.SMOKING;
+			// Recipe book types added by other mods.
+			default -> false;
 		};
 	}
 
@@ -111,11 +123,11 @@ public final class RecipeTransfer {
 	 * first, so it can rarely be wrong when ingredients overlap (e.g. "any planks" next to "oak planks").
 	 */
 	public static List<DisplaySlot> missingSlots(Display display, Map<Item, Integer> available) {
-		Map<Item, Integer> left = new HashMap<>(available);
 		List<DisplaySlot> inputs = new ArrayList<>();
 		for (DisplaySlot slot : display.slots()) {
 			if (!slot.output()) inputs.add(slot);
 		}
+		Map<Item, Integer> left = new HashMap<>(available);
 		inputs.sort(Comparator.comparingInt(slot -> slot.stacks().size()));
 
 		List<DisplaySlot> missing = new ArrayList<>();

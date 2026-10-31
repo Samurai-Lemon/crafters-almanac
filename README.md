@@ -15,7 +15,7 @@ panel doesn't open rather than cover the inventory.
 | Search items | Click the search box and type. `@modid` filters by mod and `#tag` by item tag, e.g. `@minecraft stairs` or `#logs`. While you search, items in the open inventory that don't match fade out |
 | Recipes for an item | Left-click it in the panel, or hover any item and press **R** |
 | Uses of an item | Right-click it in the panel, or hover any item and press **U** |
-| Raw materials | Click **Σ** on a crafting recipe to see everything it takes, down to raw materials. **−**/**+** change how many (shift for 10) |
+| Raw materials | Click the plain button on a crafting recipe's card, left of the **+** (or of the star where there's no **+**), called "Materials Calculator", to see everything it takes, down to raw materials. **−**/**+** change how many (shift for 10) |
 | Favorite a recipe | Click the star in the corner of its card. The star tab (second from the top) lists your favorites |
 | Only show what you can make | The filter button next to the search box, like the vanilla book's "Showing Craftable" |
 | Fill the crafting grid | Click the **+** on a recipe's card (shift-click for as many as you can). Works in the inventory, crafting table and furnaces |
@@ -23,6 +23,7 @@ panel doesn't open rather than cover the inventory.
 | Back | **Backspace** goes to the previous item; the compass tab goes back to the item list |
 | Turn pages | Arrows, or the mouse wheel |
 | Clear search | Right-click the search box |
+| Sort your inventory or a chest | The small button above the top-right of your inventory rows (survival inventory) or of a storage grid (chests, barrels, shulker boxes, hoppers, dispensers). The inventory one leaves the hotbar alone; choose the order in the settings |
 | Hide / show panel | **O**, or click the almanac button (it uses the vanilla recipe book art) |
 | Settings | Right-click the almanac button, or **Config** in Mod Menu |
 | Turn the almanac off on a screen it doesn't suit | **Show on This Screen** in the settings (open them from that screen), or bind **Turn Almanac Off/On for This Screen** in Controls |
@@ -38,6 +39,7 @@ Saved to `config/craftersalmanac.json`.
 - **Hide Vanilla Recipe Book**: hides the green recipe book button; the almanac button takes its spot.
 - **Recipe IDs in Tooltips**: shows `minecraft:oak_planks`-style IDs when hovering a recipe's result.
 - **Highlight Search in Inventory**: fades out inventory items that don't match the search.
+- **Sort Inventory**: how the sort buttons order items: Creative Menu Order, Name, Mod, Amount, or Off (hides the buttons).
 
 ## Building
 
@@ -57,6 +59,10 @@ To play with it, put `build/libs/crafters-almanac-<version>.jar` and
   and turns each one into a `Display`: slots with positions plus a few extras like cook time.
 - `recipe/ItemList` uses the creative search tab, so it includes variants such as potions and enchanted books, plus any
   modded item that isn't in a creative tab.
+- `gui/ScreenShift` makes room for the panel by drawing the whole container screen shifted right (with the mouse
+  shifted back), rather than changing the screen's position. Many screens, vanilla's chest included, work out their own
+  position, so moving it would split their background from their slots; shifting the whole screen keeps every screen,
+  vanilla or modded, in one piece.
 - `gui/ViewerPanel` is a widget that gets added to every container screen. It uses the same texture offsets as
   vanilla's `RecipeBookComponent` (book background, tabs, page arrows, slot buttons).
 - `gui/RecipeRenderer` draws each recipe on a card (`recipe/Card`). Crafting, cooking and brewing use the art cards
@@ -74,6 +80,8 @@ To play with it, put `build/libs/crafters-almanac-<version>.jar` and
 - `gui/Craftable` works out which items you can make from your inventory for the filter button. It counts every
   recipe type wherever you are (so a stonecutter recipe counts even at a crafting table) and ignores fuel.
 - `gui/Favorites` stores favorite recipe IDs in the config file, so they survive restarts and work across worlds.
+- `gui/InventorySorter` sorts by clicking slots like a player would (so it works on any server): it combines
+  stacks of the same item, then orders them with swaps.
 - `gui/RecipeTransfer` fills the grid by sending the same packet as clicking a recipe in the vanilla book, so it works
   on any server. Like vanilla, the server only fills recipes the player has unlocked; the **+** is greyed out otherwise.
 

@@ -5,6 +5,7 @@ import com.samurailemon.craftersalmanac.recipe.DisplaySlot;
 import com.samurailemon.craftersalmanac.recipe.RecipeIndex;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.HashSet;
 import java.util.List;
@@ -39,12 +40,28 @@ public final class Craftable {
 		Set<Item> result = new HashSet<>();
 		for (Display display : displays) {
 			// Brewing and fuel aren't crafted; potions also all count as one item here.
-			if (display.category().isVirtual()) continue;
+			if (display.category().isVirtual() || !anyOfEachInput(display, available)) continue;
 			if (!RecipeTransfer.missingSlots(display, available).isEmpty()) continue;
 			for (DisplaySlot slot : display.slots()) {
 				if (slot.output()) slot.stacks().forEach(stack -> result.add(stack.getItem()));
 			}
 		}
 		return Set.copyOf(result);
+	}
+
+	/** Quick reject: some input has none of its options in the inventory at all. Most recipes stop here. */
+	private static boolean anyOfEachInput(Display display, Map<Item, Integer> available) {
+		for (DisplaySlot slot : display.slots()) {
+			if (slot.output()) continue;
+			boolean any = false;
+			for (ItemStack option : slot.stacks()) {
+				if (available.containsKey(option.getItem())) {
+					any = true;
+					break;
+				}
+			}
+			if (!any) return false;
+		}
+		return true;
 	}
 }

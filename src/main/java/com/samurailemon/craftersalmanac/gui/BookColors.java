@@ -17,9 +17,10 @@ import java.io.InputStream;
 public final class BookColors {
 	private static final Logger LOGGER = LogUtils.getLogger();
 	private static final ResourceLocation RECIPE_BOOK = ResourceLocation.withDefaultNamespace("textures/gui/recipe_book.png");
-	/** A spot on the book's page, below the search box, where the item grid goes. */
+	/** A spot on the book's page, below the search box, where the item grid goes (in a 256x256 texture). */
 	private static final int PAGE_X = 73;
 	private static final int PAGE_Y = 100;
+	private static final int VANILLA_SIZE = 256;
 	private static Integer textColor;
 
 	private BookColors() {
@@ -30,7 +31,8 @@ public final class BookColors {
 			textColor = 0x404040;
 			try (InputStream in = Minecraft.getInstance().getResourceManager().open(RECIPE_BOOK)) {
 				NativeImage image = NativeImage.read(in);
-				int page = image.getPixelRGBA(PAGE_X, PAGE_Y);
+				// HD resource packs use bigger textures with the same layout, so scale the spot to fit.
+				int page = image.getPixelRGBA(PAGE_X * image.getWidth() / VANILLA_SIZE, PAGE_Y * image.getHeight() / VANILLA_SIZE);
 				image.close();
 				// NativeImage pixels are ABGR.
 				int brightness = (299 * (page & 0xFF) + 587 * (page >> 8 & 0xFF) + 114 * (page >> 16 & 0xFF)) / 1000;

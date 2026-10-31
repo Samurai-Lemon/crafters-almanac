@@ -1,5 +1,6 @@
 package com.samurailemon.craftersalmanac.recipe;
 
+import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -7,11 +8,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -20,6 +26,8 @@ import java.util.Set;
  * command blocks, so those stay hidden. Filtered by the search box.
  */
 public final class ItemList {
+	private static final Logger LOGGER = LogUtils.getLogger();
+
 	/** An item with the text the search matches against, worked out once. */
 	private record Entry(ItemStack stack, String name, String namespace, List<String> tags) {
 		static Entry of(ItemStack stack) {
@@ -33,6 +41,8 @@ public final class ItemList {
 
 	private static ClientPacketListener cachedConnection;
 	private static List<Entry> entries = List.of();
+	/** Each item's first position in the list, built with it. */
+	private static Map<Item, Integer> order = Map.of();
 	private static String cachedQuery;
 	private static List<ItemStack> cachedResult = List.of();
 
@@ -56,6 +66,12 @@ public final class ItemList {
 		cachedQuery = normalized;
 		cachedResult = result;
 		return result;
+	}
+
+	/** Where an item comes in the creative menu's order (items it doesn't list go last). */
+	public static int creativeOrder(Item item) {
+		entries();
+		return order.getOrDefault(item, Integer.MAX_VALUE);
 	}
 
 	/** Whether any stack (e.g. one in the player's inventory) matches the search, using the same rules as the list. */
@@ -95,27 +111,45 @@ public final class ItemList {
 			cachedConnection = connection;
 			cachedQuery = null;
 			entries = build(minecraft, connection);
+			Map<Item, Integer> positions = new HashMap<>();
+			for (int i = 0; i < entries.size(); i++) {
+				positions.putIfAbsent(entries.get(i).stack().getItem(), i);
+			}
+			order = positions;
 		}
 		return entries;
 	}
 
 	private static List<Entry> build(Minecraft minecraft, ClientPacketListener connection) {
-		CreativeModeTabs.tryRebuildTabContents(connection.enabledFeatures(), false, minecraft.level.registryAccess());
-		List<ItemStack> stacks = new ArrayList<>(CreativeModeTabs.searchTab().getDisplayItems());
+		List<ItemStack> stacks = new ArrayList<>();
+		try {
+			CreativeModeTabs.tryRebuildTabContents(connection.enabledFeatures(), false, minecraft.level.registryAccess());
+			stacks.addAll(CreativeModeTabs.searchTab().getDisplayItems());
+		} catch (RuntimeException | LinkageError e) {
+			// A mod's creative tab can fail to build. Fall back to the plain item registry below (no variants).
+			LOGGER.warn("Couldn't read the creative search tab, listing registered items instead", e);
+			stacks.clear();
+		}
 		Set<Item> listed = new HashSet<>();
 		for (ItemStack stack : stacks) {
 			listed.add(stack.getItem());
 		}
+		boolean fromTab = !stacks.isEmpty();
 		for (Item item : BuiltInRegistries.ITEM) {
+			// Normally only modded items missing from creative tabs; everything if the creative tab couldn't be read.
 			boolean modded = !BuiltInRegistries.ITEM.getKey(item).getNamespace().equals(ResourceLocation.DEFAULT_NAMESPACE);
-			if (modded && !listed.contains(item) && item.isEnabled(connection.enabledFeatures())) {
+			if ((modded || !fromTab) && item != Items.AIR && !listed.contains(item) && item.isEnabled(connection.enabledFeatures())) {
 				stacks.add(new ItemStack(item));
 			}
 		}
 
 		List<Entry> built = new ArrayList<>(stacks.size());
 		for (ItemStack stack : stacks) {
-			built.add(Entry.of(stack));
+			try {
+				built.add(Entry.of(stack));
+			} catch (RuntimeException | LinkageError e) {
+				LOGGER.debug("Skipping item {}", stack.getItem(), e);
+			}
 		}
 		return List.copyOf(built);
 	}

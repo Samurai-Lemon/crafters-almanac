@@ -1,5 +1,6 @@
 package com.samurailemon.craftersalmanac.config;
 
+import com.samurailemon.craftersalmanac.gui.InventorySorter;
 import com.samurailemon.craftersalmanac.gui.ScreenSupport;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -29,6 +30,13 @@ public class ConfigScreen extends Screen {
 		y = toggle(y, "hide_vanilla_button", config.hideVanillaRecipeButton, value -> config.hideVanillaRecipeButton = value);
 		y = toggle(y, "show_recipe_ids", config.showRecipeIds, value -> config.showRecipeIds = value);
 		y = toggle(y, "highlight_search", config.highlightSearch, value -> config.highlightSearch = value);
+		addRenderableWidget(CycleButton.builder(InventorySorter.Mode::title)
+				.withValues(InventorySorter.Mode.values())
+				.withInitialValue(config.sortMode)
+				.withTooltip(mode -> Tooltip.create(Component.translatable("craftersalmanac.config.sort_mode.tooltip")))
+				.create(width / 2 - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, 20, Component.translatable("craftersalmanac.config.sort_mode"),
+						(button, mode) -> config.sortMode = mode));
+		y += 24;
 
 		// Opened from a container screen (right-clicking our button): offer to switch the viewer off just there.
 		if (parent instanceof AbstractContainerScreen<?>) {

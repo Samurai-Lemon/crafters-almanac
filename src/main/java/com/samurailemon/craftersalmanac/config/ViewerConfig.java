@@ -1,6 +1,7 @@
 package com.samurailemon.craftersalmanac.config;
 
 import com.google.gson.Gson;
+import com.samurailemon.craftersalmanac.gui.InventorySorter;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import com.mojang.logging.LogUtils;
@@ -33,6 +34,8 @@ public final class ViewerConfig {
 	public boolean craftableOnly = false;
 	/** Favorite recipe IDs, oldest first. */
 	public List<String> favorites = new ArrayList<>();
+	/** How the inventory sort button orders items; Off hides the button. */
+	public InventorySorter.Mode sortMode = InventorySorter.Mode.CREATIVE;
 	/** Class names of screens the viewer is switched off on. */
 	public List<String> disabledScreens = new ArrayList<>();
 
@@ -45,7 +48,13 @@ public final class ViewerConfig {
 		if (Files.exists(FILE)) {
 			try (Reader reader = Files.newBufferedReader(FILE)) {
 				ViewerConfig config = GSON.fromJson(reader, ViewerConfig.class);
-				if (config != null) return config;
+				if (config != null) {
+					if (config.favorites == null) config.favorites = new ArrayList<>();
+					if (config.disabledScreens == null) config.disabledScreens = new ArrayList<>();
+					// Missing, or a mode name this version doesn't know.
+					if (config.sortMode == null) config.sortMode = InventorySorter.Mode.CREATIVE;
+					return config;
+				}
 			} catch (IOException | JsonParseException e) {
 				LOGGER.warn("Couldn't read {}, using defaults", FILE, e);
 			}

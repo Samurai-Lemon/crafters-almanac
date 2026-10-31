@@ -21,4 +21,10 @@ public interface AbstractContainerScreenAccessor {
 
 	@Accessor("hoveredSlot")
 	Slot rbv$getHoveredSlot();
+
+	@Accessor("titleLabelX")
+	int rbv$getTitleLabelX();
+
+	@Accessor("titleLabelY")
+	int rbv$getTitleLabelY();
 }

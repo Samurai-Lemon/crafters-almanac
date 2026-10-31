@@ -21,8 +21,8 @@ import java.util.function.Predicate;
 public final class RecipeIndex {
 	private static final Logger LOGGER = LogUtils.getLogger();
 
-	private static RecipeManager cachedManager;
-	private static int cachedSize = -1;
+	/** The manager's recipe collection, which Minecraft replaces (not edits) when recipes change, e.g. on /reload. */
+	private static Collection<RecipeHolder<?>> cachedRecipes;
 	private static List<Display> displays = List.of();
 
 	private RecipeIndex() {
@@ -49,11 +49,9 @@ public final class RecipeIndex {
 		ClientLevel level = Minecraft.getInstance().level;
 		if (level == null) return List.of();
 
-		RecipeManager manager = level.getRecipeManager();
-		Collection<RecipeHolder<?>> recipes = manager.getRecipes();
-		if (manager != cachedManager || recipes.size() != cachedSize) {
-			cachedManager = manager;
-			cachedSize = recipes.size();
+		Collection<RecipeHolder<?>> recipes = level.getRecipeManager().getRecipes();
+		if (recipes != cachedRecipes) {
+			cachedRecipes = recipes;
 			displays = build(recipes, level);
 		}
 		return displays;
@@ -65,14 +63,15 @@ public final class RecipeIndex {
 			try {
 				Display display = DisplayFactory.create(holder, level.registryAccess());
 				if (display != null) built.add(display);
-			} catch (RuntimeException e) {
-				// Modded recipes can do surprising things; skip them rather than crash the screen.
+			} catch (RuntimeException | LinkageError e) {
+				// Modded recipes can do surprising things (or come from a mod built for another version); skip them
+				// rather than crash the screen.
 				LOGGER.debug("Skipping recipe {}", holder.id(), e);
 			}
 		}
 		try {
 			built.addAll(ExtraRecipes.create(level));
-		} catch (RuntimeException e) {
+		} catch (RuntimeException | LinkageError e) {
 			LOGGER.warn("Couldn't list brewing and fuel recipes", e);
 		}
 		built.sort(Comparator.comparing(Display::category).thenComparing(display -> display.id().toString()));

@@ -3,7 +3,10 @@ package com.samurailemon.craftersalmanac;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.samurailemon.craftersalmanac.config.ViewerConfig;
 import com.samurailemon.craftersalmanac.gui.BookColors;
+import com.samurailemon.craftersalmanac.gui.InventorySorter;
+import com.samurailemon.craftersalmanac.gui.ScreenShift;
 import com.samurailemon.craftersalmanac.gui.ScreenSupport;
+import com.samurailemon.craftersalmanac.gui.SortButton;
 import com.samurailemon.craftersalmanac.gui.ViewerButton;
 import com.samurailemon.craftersalmanac.gui.ViewerPanel;
 import com.samurailemon.craftersalmanac.gui.ViewerState;
@@ -24,6 +27,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.recipebook.RecipeBookComponent;
 import net.minecraft.client.gui.screens.recipebook.RecipeUpdateListener;
 import net.minecraft.network.chat.Component;
@@ -33,6 +37,8 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
+
+import java.lang.ref.WeakReference;
 
 public class CraftersAlmanac implements ClientModInitializer {
 	private static final String CATEGORY = "key.categories.craftersalmanac";
@@ -44,7 +50,7 @@ public class CraftersAlmanac implements ClientModInitializer {
 	private static final KeyMapping DISABLE_ON_SCREEN = key("disable_on_screen", GLFW.GLFW_KEY_UNKNOWN);
 
 	/** The last screen we attached to, to tell a newly opened screen from a re-init of the same one (resize). */
-	private static AbstractContainerScreen<?> lastScreen;
+	private static WeakReference<AbstractContainerScreen<?>> lastScreen = new WeakReference<>(null);
 	/** Screens get at most one automatic re-layout, in case a mod's widgets move whenever the container does. */
 	private static boolean relaidOut;
 
@@ -81,8 +87,8 @@ public class CraftersAlmanac implements ClientModInitializer {
 	}
 
 	private static void attach(AbstractContainerScreen<?> screen) {
-		if (screen != lastScreen) {
-			lastScreen = screen;
+		if (screen != lastScreen.get()) {
+			lastScreen = new WeakReference<>(screen);
 			relaidOut = false;
 			ViewerState.reset();
 		}
@@ -114,6 +120,14 @@ public class CraftersAlmanac implements ClientModInitializer {
 		}
 		if (config.showViewerButton) {
 			Screens.getButtons(screen).add(new ViewerButton(screen, vanillaButton, hideVanilla));
+		}
+
+		// A sort button for the player's inventory (survival only: creative moves items its own way), or for
+		// storage like chests, barrels and shulker boxes. Not machines, where sorting would mix up their slots.
+		if (screen instanceof InventoryScreen) {
+			Screens.getButtons(screen).add(new SortButton(screen, InventorySorter.Target.PLAYER));
+		} else if (InventorySorter.isStorage(screen.getMenu())) {
+			Screens.getButtons(screen).add(new SortButton(screen, InventorySorter.Target.CONTAINER));
 		}
 
 		ViewerPanel panel = new ViewerPanel(screen);
@@ -170,7 +184,9 @@ public class CraftersAlmanac implements ClientModInitializer {
 
 	private static ItemStack hoveredStack(AbstractContainerScreen<?> screen, ViewerPanel panel) {
 		Minecraft minecraft = Minecraft.getInstance();
-		double mouseX = minecraft.mouseHandler.xpos() * minecraft.getWindow().getGuiScaledWidth() / minecraft.getWindow().getScreenWidth();
+		// The raw mouse position, moved back by the screen's shift to match the screen's own layout.
+		double mouseX = minecraft.mouseHandler.xpos() * minecraft.getWindow().getGuiScaledWidth() / minecraft.getWindow().getScreenWidth()
+				- ScreenShift.of(screen);
 		double mouseY = minecraft.mouseHandler.ypos() * minecraft.getWindow().getGuiScaledHeight() / minecraft.getWindow().getScreenHeight();
 		ItemStack stack = panel.stackAt(mouseX, mouseY);
 		if (!stack.isEmpty()) return stack;
