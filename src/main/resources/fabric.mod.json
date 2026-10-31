@@ -6,6 +6,7 @@
 	"description": "Browse every item and look up recipes and uses (like JEI/REI) in a panel that looks like the vanilla recipe book.",
 	"authors": ["Samurai-Lemon"],
 	"license": "MIT",
+	"icon": "assets/craftersalmanac/icon.png",
 	"environment": "client",
 	"entrypoints": {
 		"client": ["com.samurailemon.craftersalmanac.CraftersAlmanac"],

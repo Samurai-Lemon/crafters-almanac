@@ -65,6 +65,7 @@ To play with it, put `build/libs/crafters-almanac-<version>.jar` and
   shapes (`card_furnace_flame`, `card_furnace_arrow`, `card_brewing_arrow`, `card_brewing_bubbles`) so they line up
   exactly; remake them if you redraw those parts of a card. Other recipe types get a plain card built from the furnace card's
   border, slots and arrow. The star is `favorite.png`. All are in `assets/craftersalmanac/textures/gui/sprites/`.
+  The mod icon is `assets/craftersalmanac/icon.png` (128x128).
 - `gui/BookColors` picks the heading text colour from the loaded book texture (dark page: light text, and the reverse).
 - `recipe/ExtraRecipes` adds brewing (read from the game's brewing list through `PotionBrewingAccessor`, so modded
   potions are included) and furnace fuels as their own tabs. They aren't real recipes, so they can't be filled into a grid.
