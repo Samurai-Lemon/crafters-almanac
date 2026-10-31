@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "recipebookviewer",
+	"version": "${version}",
+	"name": "Recipe Book Viewer",
+	"description": "Browse every item and look up recipes and uses (like JEI/REI) in a panel that looks like the vanilla recipe book.",
+	"authors": ["Samurai-Lemon"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["com.samurailemon.recipebookviewer.RecipeBookViewer"],
+		"modmenu": ["com.samurailemon.recipebookviewer.compat.ModMenuIntegration"]
+	},
+	"mixins": ["recipebookviewer.mixins.json"],
+	"accessWidener": "recipebookviewer.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	}
+}
