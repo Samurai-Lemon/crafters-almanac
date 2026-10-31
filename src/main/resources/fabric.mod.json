@@ -1,18 +1,18 @@
 {
 	"schemaVersion": 1,
-	"id": "recipebookviewer",
+	"id": "craftersalmanac",
 	"version": "${version}",
-	"name": "Recipe Book Viewer",
+	"name": "Crafter's Almanac",
 	"description": "Browse every item and look up recipes and uses (like JEI/REI) in a panel that looks like the vanilla recipe book.",
 	"authors": ["Samurai-Lemon"],
 	"license": "MIT",
 	"environment": "client",
 	"entrypoints": {
-		"client": ["com.samurailemon.recipebookviewer.RecipeBookViewer"],
-		"modmenu": ["com.samurailemon.recipebookviewer.compat.ModMenuIntegration"]
+		"client": ["com.samurailemon.craftersalmanac.CraftersAlmanac"],
+		"modmenu": ["com.samurailemon.craftersalmanac.compat.ModMenuIntegration"]
 	},
-	"mixins": ["recipebookviewer.mixins.json"],
-	"accessWidener": "recipebookviewer.accesswidener",
+	"mixins": ["craftersalmanac.mixins.json"],
+	"accessWidener": "craftersalmanac.accesswidener",
 	"depends": {
 		"fabricloader": ">=0.16.0",
 		"minecraft": "~1.21.1",

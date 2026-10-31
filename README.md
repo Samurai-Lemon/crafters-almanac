@@ -1,4 +1,4 @@
-# Recipe Book Viewer
+# Crafter's Almanac
 
 A client-side Fabric mod for Minecraft 1.21.1 that works like JEI/REI: browse every item and look up its
 recipes and uses. The panel is drawn with the vanilla recipe book's own textures, so it looks like part of the game.
@@ -23,19 +23,19 @@ panel doesn't open rather than cover the inventory.
 | Back | **Backspace** goes to the previous item; the compass tab goes back to the item list |
 | Turn pages | Arrows, or the mouse wheel |
 | Clear search | Right-click the search box |
-| Hide / show panel | **O**, or click the viewer button (it uses the vanilla recipe book art) |
-| Settings | Right-click the viewer button, or **Config** in Mod Menu |
-| Turn the viewer off on a screen it doesn't suit | **Show on This Screen** in the settings (open them from that screen), or bind **Turn Viewer Off/On for This Screen** in Controls |
+| Hide / show panel | **O**, or click the almanac button (it uses the vanilla recipe book art) |
+| Settings | Right-click the almanac button, or **Config** in Mod Menu |
+| Turn the almanac off on a screen it doesn't suit | **Show on This Screen** in the settings (open them from that screen), or bind **Turn Almanac Off/On for This Screen** in Controls |
 
-You can rebind every key under Controls → Key Binds → Recipe Book Viewer.
+You can rebind every key under Controls → Key Binds → Crafter's Almanac.
 
 ## Settings
 
-Saved to `config/recipebookviewer.json`.
+Saved to `config/craftersalmanac.json`.
 
-- **Recipe Viewer Button**: the button that shows/hides the panel. It sits next to the green
+- **Almanac Button**: the button that shows/hides the almanac. It sits next to the green
   recipe book button (in screens without one, above the container's top-right corner).
-- **Hide Vanilla Recipe Book**: hides the green recipe book button; the viewer button takes its spot.
+- **Hide Vanilla Recipe Book**: hides the green recipe book button; the almanac button takes its spot.
 - **Recipe IDs in Tooltips**: shows `minecraft:oak_planks`-style IDs when hovering a recipe's result.
 - **Highlight Search in Inventory**: fades out inventory items that don't match the search.
 
@@ -48,7 +48,7 @@ You need JDK 21 (for example `brew install --cask temurin@21`).
 ./gradlew runClient  # launch a dev Minecraft with the mod loaded
 ```
 
-To play with it, put `build/libs/recipe-book-viewer-<version>.jar` and
+To play with it, put `build/libs/crafters-almanac-<version>.jar` and
 [Fabric API](https://modrinth.com/mod/fabric-api) into your `.minecraft/mods` folder.
 
 ## How it works
@@ -64,7 +64,7 @@ To play with it, put `build/libs/recipe-book-viewer-<version>.jar` and
   128 wide by keeping their borders and the middle around the art. The animations use lit copies of the cards' own
   shapes (`card_furnace_flame`, `card_furnace_arrow`, `card_brewing_arrow`, `card_brewing_bubbles`) so they line up
   exactly; remake them if you redraw those parts of a card. Other recipe types get a plain card built from the furnace card's
-  border, slots and arrow. The star is `favorite.png`. All are in `assets/recipebookviewer/textures/gui/sprites/`.
+  border, slots and arrow. The star is `favorite.png`. All are in `assets/craftersalmanac/textures/gui/sprites/`.
 - `gui/BookColors` picks the heading text colour from the loaded book texture (dark page: light text, and the reverse).
 - `recipe/ExtraRecipes` adds brewing (read from the game's brewing list through `PotionBrewingAccessor`, so modded
   potions are included) and furnace fuels as their own tabs. They aren't real recipes, so they can't be filled into a grid.

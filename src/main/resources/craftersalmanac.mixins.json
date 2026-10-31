@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "com.samurailemon.craftersalmanac.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AbstractContainerScreenAccessor",
+		"AbstractContainerScreenMixin",
+		"ImageButtonAccessor",
+		"KeyboardHandlerMixin",
+		"PotionBrewingAccessor",
+		"RecipeBookComponentMixin",
+		"SmithingTransformRecipeAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -3,14 +3,14 @@ plugins {
 }
 
 base {
-	archivesName = 'recipe-book-viewer'
+	archivesName = 'crafters-almanac'
 }
 
 loom {
-	accessWidenerPath = file("src/main/resources/recipebookviewer.accesswidener")
+	accessWidenerPath = file("src/main/resources/craftersalmanac.accesswidener")
 
 	mods {
-		"recipebookviewer" {
+		"craftersalmanac" {
 			sourceSet sourceSets.main
 		}
 	}
