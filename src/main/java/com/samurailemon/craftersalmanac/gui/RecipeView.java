@@ -17,6 +17,8 @@ public final class RecipeView {
 	/** Vertical space for recipes below a one-line heading; a heading that wraps takes a line of it. */
 	private static final int AREA_HEIGHT = 88;
 	public static final int GAP = 4;
+	/** Favorites are listed as short rows rather than full cards, this many to a page. */
+	public static final int FAVORITES_PER_PAGE = 3;
 
 	/** Empty for the favorites view. */
 	private final ItemStack focus;
@@ -42,7 +44,7 @@ public final class RecipeView {
 		this.uses = uses;
 		this.favorites = favorites;
 		int areaHeight = AREA_HEIGHT - (ViewerPanel.headingLines(Minecraft.getInstance().font, header()).size() - 1) * ViewerPanel.HEADING_LINE;
-		this.favoritePages = favorites ? paginate(displays, areaHeight) : List.of();
+		this.favoritePages = favorites ? chunk(displays) : List.of();
 		if (favorites) {
 			this.categories = List.of();
 			this.selected = null;
@@ -86,6 +88,14 @@ public final class RecipeView {
 			current.add(display);
 		}
 		if (!current.isEmpty()) result.add(current);
+		return result;
+	}
+
+	private static List<List<Display>> chunk(List<Display> displays) {
+		List<List<Display>> result = new ArrayList<>();
+		for (int i = 0; i < displays.size(); i += FAVORITES_PER_PAGE) {
+			result.add(displays.subList(i, Math.min(i + FAVORITES_PER_PAGE, displays.size())));
+		}
 		return result;
 	}
 

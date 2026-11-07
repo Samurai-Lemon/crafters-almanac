@@ -96,8 +96,8 @@ public final class RecipeRenderer {
 	}
 
 	/**
-	 * Art cards: the left border, the kept middle and the right border, each full height. Plain cards: the border's
-	 * corners and edges with the empty middle strip tiled to the size needed.
+	 * Art cards: the left border, the kept middle and the right border, each full height. Plain cards: see
+	 * {@link #plainCard}.
 	 */
 	private static void card(GuiGraphics g, Display display, int x, int y) {
 		Card card = display.card();
@@ -109,8 +109,13 @@ public final class RecipeRenderer {
 			blit(g, sprite, Card.TEXTURE_WIDTH - b, 0, x + b + Card.KEPT, y, b, Card.TEXTURE_HEIGHT);
 			return;
 		}
-		int width = display.width();
-		int height = display.height();
+		plainCard(g, x, y, display.width(), display.height());
+	}
+
+	/** A plain card of any size: the border's corners and edges with the empty middle strip tiled to fill it. */
+	public static void plainCard(GuiGraphics g, int x, int y, int width, int height) {
+		ResourceLocation sprite = sprite(Card.PLAIN.sprite);
+		int b = Card.BORDER;
 		int bottom = Card.BOTTOM_BORDER;
 		cardRow(g, sprite, x, y, width, 0, b);
 		for (int row = b; row < height - bottom; row += EMPTY_HEIGHT) {

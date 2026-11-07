@@ -45,6 +45,13 @@ public final class ViewerState {
 		return true;
 	}
 
+	/** Opens a single recipe on its full card, e.g. from its row in the favorites list. Back returns to the list. */
+	public static void showRecipe(Display display, ItemStack result) {
+		if (view != null) history.push(view);
+		view = new RecipeView(result.copyWithCount(1), false, List.of(display));
+		materials = null;
+	}
+
 	/** Opens the materials calculator for a recipe. */
 	public static void showMaterials(Display display, Map<Item, Integer> inventory) {
 		materials = new Materials(display, inventory);

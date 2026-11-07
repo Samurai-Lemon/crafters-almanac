@@ -19,6 +19,7 @@
 	"craftersalmanac.favorites.empty.hint": "Click the star on a recipe to add it",
 	"craftersalmanac.favorite.add": "Add to Favorites",
 	"craftersalmanac.favorite.remove": "Remove from Favorites",
+	"craftersalmanac.favorite.open": "Click to view the recipe",
 	"craftersalmanac.header.recipes": "Recipes: %s",
 	"craftersalmanac.header.uses": "Uses: %s",
 	"craftersalmanac.no_items": "No items found",

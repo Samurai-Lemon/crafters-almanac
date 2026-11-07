@@ -10,6 +10,7 @@ import com.samurailemon.craftersalmanac.recipe.ItemList;
 import com.samurailemon.craftersalmanac.recipe.Layout;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -86,6 +87,16 @@ public class ViewerPanel extends AbstractWidget {
 	private static final int MATERIAL_CELL = 18;
 	private static final int MATERIAL_COLS = 6;
 	private static final int MATERIAL_ROWS = 4;
+	/** A favorites row: a plain card just tall enough for an item, three filling the page with gaps between. */
+	private static final int FAVORITE_ROW = 28;
+	private static final int FAVORITE_ROW_GAP = 2;
+	/** Grey for the line under a favorite's name, like vanilla's disabled text. */
+	private static final int SUBTITLE = 0x707070;
+	/** Favorites rows use smaller text so longer names fit beside the buttons. */
+	private static final float FAVORITE_TEXT_SCALE = 0.75F;
+	/** Long favorite names scroll at this many screen pixels a second, with this much space before they repeat. */
+	private static final double MARQUEE_SPEED = 15;
+	private static final float MARQUEE_GAP = 16;
 
 	/** Something under the mouse: an item, or a button with an optional tooltip. Rebuilt every frame. */
 	private record Hit(int x, int y, int w, int h, ItemStack stack, List<Component> extra, Component tooltip, Runnable action) {
@@ -302,6 +313,13 @@ public class ViewerPanel extends AbstractWidget {
 		}
 
 		int y = bookY + GRID_Y + 12 + (headingLines - 1) * HEADING_LINE;
+		if (view.favorites) {
+			for (Display display : view.currentPage()) {
+				renderFavoriteRow(g, display, bookX + GRID_X, y, mouseX, mouseY);
+				y += FAVORITE_ROW + FAVORITE_ROW_GAP;
+			}
+			return;
+		}
 		for (Display display : view.currentPage()) {
 			int x = bookX + GRID_X + (CONTENT_WIDTH - display.width()) / 2;
 			RecipeRenderer.render(g, font, display, x, y);
@@ -324,13 +342,89 @@ public class ViewerPanel extends AbstractWidget {
 			int nextX = starX;
 			if (check.status() != RecipeTransfer.Status.UNSUPPORTED) {
 				nextX -= 1 + TRANSFER_SIZE;
-				renderTransferButton(g, display, check, nextX, buttonY, x, y, mouseX, mouseY);
+				renderTransferButton(g, display, check, nextX, buttonY, x, y, true, mouseX, mouseY);
 			}
 			if (display.layout() == Layout.CRAFTING) {
 				renderMaterialsButton(g, display, nextX - 1 - TRANSFER_SIZE, buttonY, mouseX, mouseY);
 			}
 			y += display.height() + RecipeView.GAP;
 		}
+	}
+
+	/**
+	 * One favorite as a short row: what it makes, its name, and the station (Crafting Table, Furnace...) under it,
+	 * with the star, fill and calculator buttons on the right like on the full card. Clicking the row opens the full
+	 * card; clicking the item opens all its recipes, as items do everywhere else.
+	 */
+	private void renderFavoriteRow(GuiGraphics g, Display display, int x, int y, int mouseX, int mouseY) {
+		ItemStack result = favoriteResult(display);
+		RecipeRenderer.plainCard(g, x, y, CONTENT_WIDTH, FAVORITE_ROW);
+		hits.add(Hit.button(x, y, CONTENT_WIDTH, FAVORITE_ROW, result.getHoverName(),
+				List.of(display.category().title().copy().withStyle(ChatFormatting.GRAY),
+						Component.translatable("craftersalmanac.favorite.open").withStyle(ChatFormatting.DARK_GRAY)),
+				() -> ViewerState.showRecipe(display, result)));
+
+		int inner = Card.BORDER;
+		int itemY = y + inner;
+		g.renderItem(result, x + inner + 1, itemY);
+		g.renderItemDecorations(font, result, x + inner + 1, itemY);
+		hits.add(Hit.item(x + inner + 1, itemY, 16, result, List.of()));
+
+		int buttonY = y + (FAVORITE_ROW - Card.BOTTOM_BORDER + inner - FAVORITE_BUTTON) / 2;
+		int starX = x + CONTENT_WIDTH - inner - 1 - FAVORITE_BUTTON;
+		renderFavoriteButton(g, display, starX, buttonY, mouseX, mouseY);
+		RecipeTransfer.Check check = RecipeTransfer.check(display, screen.getMenu());
+		int nextX = starX;
+		if (check.status() != RecipeTransfer.Status.UNSUPPORTED) {
+			nextX -= 1 + TRANSFER_SIZE;
+			renderTransferButton(g, display, check, nextX, buttonY, x, y, false, mouseX, mouseY);
+		}
+		if (display.layout() == Layout.CRAFTING) {
+			nextX -= 1 + TRANSFER_SIZE;
+			renderMaterialsButton(g, display, nextX, buttonY, mouseX, mouseY);
+		}
+
+		int textX = x + inner + 1 + 16 + 4;
+		int textWidth = nextX - 3 - textX;
+		smallText(g, result.getHoverName().getString(), textX, y + inner + 2, textWidth, 0x404040);
+		smallText(g, display.category().title().getString(), textX, y + inner + 9, textWidth, SUBTITLE);
+	}
+
+	/**
+	 * Text at the favorites rows' smaller size in {@code width} screen pixels. Text too long for that scrolls left
+	 * nonstop at a steady speed, a second copy following a gap behind so it loops.
+	 */
+	private void smallText(GuiGraphics g, String text, int x, int y, int width, int color) {
+		float textWidth = font.width(text) * FAVORITE_TEXT_SCALE;
+		if (textWidth <= width) {
+			drawSmall(g, text, x, y, color);
+			return;
+		}
+		float loop = textWidth + MARQUEE_GAP;
+		float offset = (float) (Util.getMillis() * MARQUEE_SPEED / 1000.0 % loop);
+		g.enableScissor(x, y - 1, x + width, y + Mth.ceil(font.lineHeight * FAVORITE_TEXT_SCALE));
+		drawSmall(g, text, x - offset, y, color);
+		drawSmall(g, text, x - offset + loop, y, color);
+		g.disableScissor();
+	}
+
+	private void drawSmall(GuiGraphics g, String text, float x, int y, int color) {
+		g.pose().pushPose();
+		g.pose().translate(x, y, 0);
+		g.pose().scale(FAVORITE_TEXT_SCALE, FAVORITE_TEXT_SCALE, 1.0F);
+		g.drawString(font, text, 0, 0, color, false);
+		g.pose().popPose();
+	}
+
+	/** What a recipe makes; recipes without an output (fuel) show their first item instead. */
+	private static ItemStack favoriteResult(Display display) {
+		for (DisplaySlot slot : display.slots()) {
+			if (slot.output() && slot.shown()) return slot.current();
+		}
+		for (DisplaySlot slot : display.slots()) {
+			if (slot.shown()) return slot.current();
+		}
+		return ItemStack.EMPTY;
 	}
 
 	/**
@@ -476,7 +570,8 @@ public class ViewerPanel extends AbstractWidget {
 	}
 
 	/** The small "+" next to the star that fills the crafting grid or furnace. */
-	private void renderTransferButton(GuiGraphics g, Display display, RecipeTransfer.Check check, int x, int y, int recipeX, int recipeY, int mouseX, int mouseY) {
+	private void renderTransferButton(GuiGraphics g, Display display, RecipeTransfer.Check check, int x, int y, int recipeX, int recipeY,
+			boolean tintMissing, int mouseX, int mouseY) {
 		Hit hit = switch (check.status()) {
 			case READY -> Hit.button(x, y, TRANSFER_SIZE, TRANSFER_SIZE, Component.translatable("craftersalmanac.transfer"),
 					List.of(Component.translatable("craftersalmanac.transfer.max").withStyle(ChatFormatting.GRAY)),
@@ -494,7 +589,7 @@ public class ViewerPanel extends AbstractWidget {
 		g.drawString(font, "+", x + 3, y + 2, color, true);
 
 		// Like REI: while hovering, tint the ingredients you don't have.
-		if (hovered) {
+		if (hovered && tintMissing) {
 			for (DisplaySlot slot : check.missing()) {
 				int sx = recipeX + slot.x();
 				int sy = recipeY + slot.y();
