@@ -36,6 +36,8 @@ public final class ViewerConfig {
 	public List<String> favorites = new ArrayList<>();
 	/** How the inventory sort button orders items; Off hides the button. */
 	public InventorySorter.Mode sortMode = InventorySorter.Mode.CREATIVE;
+	/** The quick stack button in chests and other storage. */
+	public boolean quickStack = true;
 	/** Class names of screens the viewer is switched off on. */
 	public List<String> disabledScreens = new ArrayList<>();
 

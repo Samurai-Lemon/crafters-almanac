@@ -122,12 +122,14 @@ public class CraftersAlmanac implements ClientModInitializer {
 			Screens.getButtons(screen).add(new ViewerButton(screen, vanillaButton, hideVanilla));
 		}
 
-		// A sort button for the player's inventory (survival only: creative moves items its own way), or for
-		// storage like chests, barrels and shulker boxes. Not machines, where sorting would mix up their slots.
+		// A sort button for the player's inventory (survival only: creative moves items its own way), or sort and
+		// quick stack buttons for storage like chests, barrels and shulker boxes. Not machines, where sorting would
+		// mix up their slots.
 		if (screen instanceof InventoryScreen) {
-			Screens.getButtons(screen).add(new SortButton(screen, InventorySorter.Target.PLAYER));
+			Screens.getButtons(screen).add(new SortButton(screen, InventorySorter.Target.PLAYER, SortButton.Kind.SORT));
 		} else if (InventorySorter.isStorage(screen.getMenu())) {
-			Screens.getButtons(screen).add(new SortButton(screen, InventorySorter.Target.CONTAINER));
+			Screens.getButtons(screen).add(new SortButton(screen, InventorySorter.Target.CONTAINER, SortButton.Kind.SORT));
+			Screens.getButtons(screen).add(new SortButton(screen, InventorySorter.Target.CONTAINER, SortButton.Kind.QUICK_STACK));
 		}
 
 		ViewerPanel panel = new ViewerPanel(screen);

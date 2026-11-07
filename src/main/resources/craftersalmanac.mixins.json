@@ -11,7 +11,8 @@
 		"MouseHandlerMixin",
 		"PotionBrewingAccessor",
 		"ScreenMixin",
-		"SmithingTransformRecipeAccessor"
+		"SmithingTransformRecipeAccessor",
+		"SmithingTrimRecipeAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

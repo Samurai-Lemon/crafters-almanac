@@ -4,11 +4,19 @@ import com.samurailemon.craftersalmanac.recipe.Card;
 import com.samurailemon.craftersalmanac.recipe.Display;
 import com.samurailemon.craftersalmanac.recipe.DisplaySlot;
 import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.ItemStack;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -38,6 +46,12 @@ public final class RecipeRenderer {
 	/** Text on a card: vanilla's container label colour. */
 	private static final int CARD_TEXT = 0x404040;
 	private static final DecimalFormat NUMBER = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
+	/** Trim cards' armor stand: the smithing table's tilt and starting direction, a bit smaller, one turn every 8s. */
+	private static final Quaternionf STAND_ANGLE = new Quaternionf().rotationXYZ(0.43633232F, 0.0F, (float) Math.PI);
+	private static final float STAND_FACING = 210.0F;
+	private static final float STAND_SCALE = 23.0F;
+	private static final long STAND_TURN_MILLIS = 8000L;
+	private static ArmorStand stand;
 
 	private RecipeRenderer() {
 	}
@@ -69,6 +83,13 @@ public final class RecipeRenderer {
 			case SINGLE, SMITHING, GENERIC -> {
 				for (DisplaySlot slot : display.slots()) {
 					if (slot.output() && slot.shown()) arrow(g, x + slot.x() - 28, y + slot.y() + 5);
+				}
+			}
+			case TRIM -> {
+				for (DisplaySlot slot : display.slots()) {
+					if (!slot.output()) continue;
+					arrow(g, x + slot.x() - 28, y + slot.y() + 5);
+					armorStand(g, slot.current(), x + (slot.x() + slot.size() + display.width() - Card.BORDER) / 2, y + slot.y() + slot.size());
 				}
 			}
 			case FUEL -> {
@@ -141,6 +162,28 @@ public final class RecipeRenderer {
 
 	private static ResourceLocation sprite(String name) {
 		return ResourceLocation.fromNamespaceAndPath("craftersalmanac", name);
+	}
+
+	/**
+	 * An armor stand wearing {@code stack}, standing with its feet at (x, y) and slowly turning round, like the
+	 * smithing table's preview. One stand is kept and dressed for each card as it's drawn.
+	 */
+	private static void armorStand(GuiGraphics g, ItemStack stack, int x, int y) {
+		ClientLevel level = Minecraft.getInstance().level;
+		if (level == null) return;
+		if (stand == null || stand.level() != level) {
+			stand = new ArmorStand(level, 0, 0, 0);
+			stand.setNoBasePlate(true);
+			stand.setShowArms(true);
+		}
+		for (EquipmentSlot slot : EquipmentSlot.values()) {
+			stand.setItemSlot(slot, ItemStack.EMPTY);
+		}
+		stand.setItemSlot(stack.getItem() instanceof ArmorItem armor ? armor.getEquipmentSlot() : EquipmentSlot.OFFHAND, stack);
+		float turn = STAND_FACING + Util.getMillis() % STAND_TURN_MILLIS * 360.0F / STAND_TURN_MILLIS;
+		stand.yBodyRot = stand.yBodyRotO = turn;
+		stand.yHeadRot = stand.yHeadRotO = turn;
+		InventoryScreen.renderEntityInInventory(g, x, y, STAND_SCALE, new Vector3f(), STAND_ANGLE, null, stand);
 	}
 
 	/** The furnace card's arrow (22x16), centered in the 24-wide space layouts leave for an arrow. */

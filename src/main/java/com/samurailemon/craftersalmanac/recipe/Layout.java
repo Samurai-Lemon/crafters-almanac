@@ -7,6 +7,8 @@ public enum Layout {
 	/** One input, one output: stonecutter and similar modded recipes. */
 	SINGLE,
 	SMITHING,
+	/** Template, armor and material above an arrow and the trimmed armor, with an armor stand wearing it on the right. */
+	TRIM,
 	/** Any other recipe: a grid of inputs, an arrow and the output. */
 	GENERIC,
 	/** The middle of the brewing stand screen (ingredient, tubes, three bottles), then an arrow and the result. */

@@ -111,6 +111,26 @@ public final class InventorySorter {
 		}
 	}
 
+	/**
+	 * Quick stack: shift-clicks each stack in the player's main rows into the open container if the container already
+	 * holds that item (with the same components), the way a player would. Shift-clicking tops up the container's
+	 * stacks first, then uses empty slots; whatever doesn't fit stays put. The hotbar stays as it is.
+	 */
+	public static void quickStack(AbstractContainerMenu menu) {
+		Minecraft minecraft = Minecraft.getInstance();
+		Player player = minecraft.player;
+		MultiPlayerGameMode gameMode = minecraft.gameMode;
+		if (player == null || gameMode == null || !menu.getCarried().isEmpty()) return;
+
+		List<Slot> container = slots(menu, Target.CONTAINER);
+		for (Slot slot : slots(menu, Target.PLAYER)) {
+			ItemStack stack = slot.getItem();
+			if (stack.isEmpty()) continue;
+			boolean held = container.stream().anyMatch(into -> ItemStack.isSameItemSameComponents(into.getItem(), stack));
+			if (held) gameMode.handleInventoryMouseClick(menu.containerId, slot.index, 0, ClickType.QUICK_MOVE, player);
+		}
+	}
+
 	private static boolean isFull(ItemStack stack) {
 		return !stack.isEmpty() && stack.getCount() >= stack.getMaxStackSize();
 	}

@@ -61,6 +61,10 @@
 	"craftersalmanac.sort.amount": "Amount",
 	"craftersalmanac.sort.off": "Off",
 	"craftersalmanac.sort.button": "Sort Inventory",
+	"craftersalmanac.quick_stack.button": "Quick Stack",
+	"craftersalmanac.quick_stack.button.hint": "Moves items from your inventory that this already has into it (not your hotbar)",
 	"craftersalmanac.config.highlight_search": "Highlight Search in Inventory",
-	"craftersalmanac.config.highlight_search.tooltip": "While you search, items in the open inventory or chest that don't match fade out, so the matches stand out."
+	"craftersalmanac.config.highlight_search.tooltip": "While you search, items in the open inventory or chest that don't match fade out, so the matches stand out.",
+	"craftersalmanac.config.quick_stack": "Quick Stack Button",
+	"craftersalmanac.config.quick_stack.tooltip": "Adds a button to chests, barrels and other storage that moves items from your inventory into it when it already has some of them. Your hotbar is never moved."
 }

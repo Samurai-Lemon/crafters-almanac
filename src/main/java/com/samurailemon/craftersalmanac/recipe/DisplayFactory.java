@@ -1,11 +1,19 @@
 package com.samurailemon.craftersalmanac.recipe;
 
 import com.samurailemon.craftersalmanac.mixin.SmithingTransformRecipeAccessor;
+import com.samurailemon.craftersalmanac.mixin.SmithingTrimRecipeAccessor;
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.armortrim.ArmorTrim;
+import net.minecraft.world.item.armortrim.TrimMaterial;
+import net.minecraft.world.item.armortrim.TrimMaterials;
+import net.minecraft.world.item.armortrim.TrimPattern;
+import net.minecraft.world.item.armortrim.TrimPatterns;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -14,9 +22,11 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.SingleItemRecipe;
 import net.minecraft.world.item.crafting.SmithingTransformRecipe;
+import net.minecraft.world.item.crafting.SmithingTrimRecipe;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Converts recipes into {@link Display}s, each laid out on a {@link Card}. Crafting, cooking and brewing use the art
@@ -76,6 +86,10 @@ public final class DisplayFactory {
 			slots.add(output(53, 0, OUTPUT, result));
 			return plainCard(holder.id(), category, Layout.SINGLE, 53 + OUTPUT, OUTPUT, slots, 0);
 		}
+		if (recipe instanceof SmithingTrimRecipe trim) {
+			Display display = trim(holder.id(), category, (SmithingTrimRecipeAccessor) trim, registries);
+			if (display != null) return display;
+		}
 		if (recipe instanceof SmithingTransformRecipe smithing) {
 			SmithingTransformRecipeAccessor parts = (SmithingTransformRecipeAccessor) smithing;
 			addInput(slots, 0, 4, INPUT, parts.rbv$getTemplate());
@@ -89,6 +103,44 @@ public final class DisplayFactory {
 				.map(ingredient -> List.of(ingredient.getItems()))
 				.toList();
 		return generic(holder.id(), category, inputs, List.of(result));
+	}
+
+	/**
+	 * An armor trim: every armor piece the recipe takes with every trim material, as lists that cycle in step, so the
+	 * result shows that piece trimmed in that material (the material changes every second, the armor after a full
+	 * round). The template, armor and material go in a row above an arrow and the result; the armor stand that
+	 * RecipeRenderer draws wearing the result fills the right of the card. Null if the template or materials aren't
+	 * known trims, so the recipe falls back to the generic layout.
+	 */
+	private static Display trim(ResourceLocation id, Category category, SmithingTrimRecipeAccessor parts, HolderLookup.Provider registries) {
+		List<ItemStack> templates = new ArrayList<>();
+		List<ItemStack> bases = new ArrayList<>();
+		List<ItemStack> additions = new ArrayList<>();
+		List<ItemStack> results = new ArrayList<>();
+		for (ItemStack template : parts.rbv$getTemplate().getItems()) {
+			Optional<Holder.Reference<TrimPattern>> pattern = TrimPatterns.getFromTemplate(registries, template);
+			if (pattern.isEmpty()) continue;
+			for (ItemStack base : parts.rbv$getBase().getItems()) {
+				for (ItemStack addition : parts.rbv$getAddition().getItems()) {
+					Optional<Holder.Reference<TrimMaterial>> material = TrimMaterials.getFromIngredient(registries, addition);
+					if (material.isEmpty()) continue;
+					ItemStack result = base.copyWithCount(1);
+					result.set(DataComponents.TRIM, new ArmorTrim(material.get(), pattern.get()));
+					templates.add(template);
+					bases.add(base);
+					additions.add(addition);
+					results.add(result);
+				}
+			}
+		}
+		if (results.isEmpty()) return null;
+		List<DisplaySlot> slots = List.of(
+				new DisplaySlot(0, 0, INPUT, false, List.copyOf(templates)),
+				new DisplaySlot(18, 0, INPUT, false, List.copyOf(bases)),
+				new DisplaySlot(36, 0, INPUT, false, List.copyOf(additions)),
+				// Under the inputs, leaving room left of it for the arrow.
+				new DisplaySlot(28, 22, OUTPUT, true, List.copyOf(results)));
+		return plainCard(id, category, Layout.TRIM, Card.WIDTH - 2 * (Card.BORDER + PADDING), 22 + OUTPUT, slots, 0);
 	}
 
 	/**

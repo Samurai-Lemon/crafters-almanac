@@ -24,6 +24,8 @@ panel doesn't open rather than cover the inventory.
 | Turn pages | Arrows, or the mouse wheel |
 | Clear search | Right-click the search box |
 | Sort your inventory or a chest | The small button above the top-right of your inventory rows (survival inventory) or of a storage grid (chests, barrels, shulker boxes, hoppers, dispensers). The inventory one leaves the hotbar alone; choose the order in the settings |
+| Quick stack into a chest | The button left of a storage grid's sort button moves everything from your inventory that the chest (barrel, shulker box...) already has into it. Your hotbar stays as it is |
+| See armor trims | Smithing trim recipes cycle through every armor piece and trim material, with an armor stand wearing the result |
 | Hide / show panel | **O**, or click the almanac button (it uses the vanilla recipe book art) |
 | Settings | Right-click the almanac button, or **Config** in Mod Menu |
 | Turn the almanac off on a screen it doesn't suit | **Show on This Screen** in the settings (open them from that screen), or bind **Turn Almanac Off/On for This Screen** in Controls |
@@ -40,6 +42,7 @@ Saved to `config/craftersalmanac.json`.
 - **Recipe IDs in Tooltips**: shows `minecraft:oak_planks`-style IDs when hovering a recipe's result.
 - **Highlight Search in Inventory**: fades out inventory items that don't match the search.
 - **Sort Inventory**: how the sort buttons order items: Creative Menu Order, Name, Mod, Amount, or Off (hides the buttons).
+- **Quick Stack Button**: the quick stack button in chests and other storage.
 
 ## Building
 

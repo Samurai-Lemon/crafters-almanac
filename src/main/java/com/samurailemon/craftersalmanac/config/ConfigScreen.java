@@ -3,6 +3,7 @@ package com.samurailemon.craftersalmanac.config;
 import com.samurailemon.craftersalmanac.gui.InventorySorter;
 import com.samurailemon.craftersalmanac.gui.ScreenSupport;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.Tooltip;
@@ -14,8 +15,14 @@ import net.minecraft.network.chat.Component;
 import java.util.function.Consumer;
 
 public class ConfigScreen extends Screen {
-	private static final int BUTTON_WIDTH = 250;
+	/** Settings go in two columns, so they all fit above Done even on small screens. */
+	private static final int COLUMN_WIDTH = 200;
+	private static final int GAP = 10;
+	private static final int TOP = 40;
+	private static final int ROW = 24;
 	private final Screen parent;
+	/** How many settings are laid out so far; the next goes in the spot after them. */
+	private int placed;
 
 	public ConfigScreen(Screen parent) {
 		super(Component.translatable("craftersalmanac.config.title"));
@@ -25,38 +32,36 @@ public class ConfigScreen extends Screen {
 	@Override
 	protected void init() {
 		ViewerConfig config = ViewerConfig.get();
-		int y = 40;
-		y = toggle(y, "show_viewer_button", config.showViewerButton, value -> config.showViewerButton = value);
-		y = toggle(y, "hide_vanilla_button", config.hideVanillaRecipeButton, value -> config.hideVanillaRecipeButton = value);
-		y = toggle(y, "show_recipe_ids", config.showRecipeIds, value -> config.showRecipeIds = value);
-		y = toggle(y, "highlight_search", config.highlightSearch, value -> config.highlightSearch = value);
-		addRenderableWidget(CycleButton.builder(InventorySorter.Mode::title)
+		placed = 0;
+		toggle("show_viewer_button", config.showViewerButton, value -> config.showViewerButton = value);
+		toggle("hide_vanilla_button", config.hideVanillaRecipeButton, value -> config.hideVanillaRecipeButton = value);
+		toggle("show_recipe_ids", config.showRecipeIds, value -> config.showRecipeIds = value);
+		toggle("highlight_search", config.highlightSearch, value -> config.highlightSearch = value);
+		place(CycleButton.builder(InventorySorter.Mode::title)
 				.withValues(InventorySorter.Mode.values())
 				.withInitialValue(config.sortMode)
 				.withTooltip(mode -> Tooltip.create(Component.translatable("craftersalmanac.config.sort_mode.tooltip")))
-				.create(width / 2 - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, 20, Component.translatable("craftersalmanac.config.sort_mode"),
+				.create(0, 0, COLUMN_WIDTH, 20, Component.translatable("craftersalmanac.config.sort_mode"),
 						(button, mode) -> config.sortMode = mode));
-		y += 24;
+		toggle("quick_stack", config.quickStack, value -> config.quickStack = value);
 
 		// Opened from a container screen (right-clicking our button): offer to switch the viewer off just there.
 		if (parent instanceof AbstractContainerScreen<?>) {
 			String screenName = parent.getClass().getSimpleName();
-			addRenderableWidget(CycleButton.onOffBuilder(!ScreenSupport.isDisabled(parent))
+			place(CycleButton.onOffBuilder(!ScreenSupport.isDisabled(parent))
 					.withTooltip(current -> Tooltip.create(Component.translatable("craftersalmanac.config.show_on_screen.tooltip", screenName)))
-					.create(width / 2 - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, 20, Component.translatable("craftersalmanac.config.show_on_screen"),
+					.create(0, 0, COLUMN_WIDTH, 20, Component.translatable("craftersalmanac.config.show_on_screen"),
 							(button, show) -> {
 								if (show == ScreenSupport.isDisabled(parent)) ScreenSupport.toggleDisabled(parent);
 							}));
-			y += 24;
 		}
 		if (!config.disabledScreens.isEmpty()) {
-			addRenderableWidget(Button.builder(Component.translatable("craftersalmanac.config.enable_all", config.disabledScreens.size()), button -> {
+			place(Button.builder(Component.translatable("craftersalmanac.config.enable_all", config.disabledScreens.size()), button -> {
 						config.disabledScreens.clear();
 						ViewerConfig.save();
 						rebuildWidgets();
 					})
 					.tooltip(Tooltip.create(Component.translatable("craftersalmanac.config.enable_all.tooltip")))
-					.bounds(width / 2 - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, 20)
 					.build());
 		}
 
@@ -65,13 +70,22 @@ public class ConfigScreen extends Screen {
 				.build());
 	}
 
-	private int toggle(int y, String key, boolean value, Consumer<Boolean> setter) {
+	private void toggle(String key, boolean value, Consumer<Boolean> setter) {
 		String prefix = "craftersalmanac.config." + key;
 		Tooltip tooltip = Tooltip.create(Component.translatable(prefix + ".tooltip"));
-		addRenderableWidget(CycleButton.onOffBuilder(value)
+		place(CycleButton.onOffBuilder(value)
 				.withTooltip(current -> tooltip)
-				.create(width / 2 - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, 20, Component.translatable(prefix), (button, newValue) -> setter.accept(newValue)));
-		return y + 24;
+				.create(0, 0, COLUMN_WIDTH, 20, Component.translatable(prefix), (button, newValue) -> setter.accept(newValue)));
+	}
+
+	/** Adds a setting in the next spot, filling the two columns left to right, a row at a time. */
+	private void place(AbstractWidget widget) {
+		int columnWidth = Math.min(COLUMN_WIDTH, (width - 3 * GAP) / 2);
+		int column = placed % 2;
+		int row = placed / 2;
+		widget.setRectangle(columnWidth, 20, width / 2 - columnWidth - GAP / 2 + column * (columnWidth + GAP), TOP + row * ROW);
+		placed++;
+		addRenderableWidget(widget);
 	}
 
 	@Override
