@@ -44,7 +44,7 @@ public final class RecipeRenderer {
 	private static final int EMPTY_Y = 6;
 	private static final int EMPTY_HEIGHT = 9;
 	/** Text on a card: vanilla's container label colour. */
-	private static final int CARD_TEXT = 0x404040;
+	static final int CARD_TEXT = 0x404040;
 	private static final DecimalFormat NUMBER = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
 	/** Trim cards' armor stand: the smithing table's tilt and starting direction, a bit smaller, one turn every 8s. */
 	private static final Quaternionf STAND_ANGLE = new Quaternionf().rotationXYZ(0.43633232F, 0.0F, (float) Math.PI);
@@ -57,6 +57,11 @@ public final class RecipeRenderer {
 	}
 
 	public static void render(GuiGraphics g, Font font, Display display, int x, int y) {
+		render(g, font, display, x, y, true);
+	}
+
+	/** {@code showXp} is false for the Shift preview, which puts the station's name where the XP goes. */
+	public static void render(GuiGraphics g, Font font, Display display, int x, int y, boolean showXp) {
 		card(g, display, x, y);
 		Card card = display.card();
 		switch (display.layout()) {
@@ -68,7 +73,7 @@ public final class RecipeRenderer {
 				g.blitSprite(FLAME, 14, 14, 0, 14 - lit, x + card.x(56), y + 36 + 14 - lit, 14, lit);
 				g.blitSprite(ARROW_FILL, 24, 16, 0, 0, x + card.x(79), y + 34, (int) (time * 24 / total), 16);
 				// XP along the top of the card, inside the border; cook time under the arrow.
-				g.drawString(font, Component.translatable("craftersalmanac.xp", NUMBER.format(display.xp())), x + card.x(79), y + 7, CARD_TEXT, false);
+				if (showXp) g.drawString(font, Component.translatable("craftersalmanac.xp", NUMBER.format(display.xp())), x + card.x(79), y + 7, CARD_TEXT, false);
 				g.drawString(font, Component.translatable("craftersalmanac.cook_time", NUMBER.format(display.cookTime() / 20.0)), x + card.x(79), y + 53, CARD_TEXT, false);
 			}
 			case BREWING -> {

@@ -38,6 +38,10 @@ public final class ViewerConfig {
 	public InventorySorter.Mode sortMode = InventorySorter.Mode.CREATIVE;
 	/** The quick stack button in chests and other storage. */
 	public boolean quickStack = true;
+	/** Food, tool, armor and other details in tooltips while Alt is held. */
+	public boolean tooltipDetails = true;
+	/** An item's recipes beside its tooltip while Shift is held. */
+	public boolean recipePreview = true;
 	/** Class names of screens the viewer is switched off on. */
 	public List<String> disabledScreens = new ArrayList<>();
 

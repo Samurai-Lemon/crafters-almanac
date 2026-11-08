@@ -4,15 +4,18 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.samurailemon.craftersalmanac.config.ViewerConfig;
 import com.samurailemon.craftersalmanac.gui.BookColors;
 import com.samurailemon.craftersalmanac.gui.InventorySorter;
+import com.samurailemon.craftersalmanac.gui.RecipePreview;
 import com.samurailemon.craftersalmanac.gui.ScreenShift;
 import com.samurailemon.craftersalmanac.gui.ScreenSupport;
 import com.samurailemon.craftersalmanac.gui.SortButton;
+import com.samurailemon.craftersalmanac.gui.TooltipDetails;
 import com.samurailemon.craftersalmanac.gui.ViewerButton;
 import com.samurailemon.craftersalmanac.gui.ViewerPanel;
 import com.samurailemon.craftersalmanac.gui.ViewerState;
 import com.samurailemon.craftersalmanac.mixin.AbstractContainerScreenAccessor;
 import com.samurailemon.craftersalmanac.mixin.ImageButtonAccessor;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -65,6 +68,7 @@ public class CraftersAlmanac implements ClientModInitializer {
 		KeyBindingHelper.registerKeyBinding(BACK);
 		KeyBindingHelper.registerKeyBinding(TOGGLE);
 		KeyBindingHelper.registerKeyBinding(DISABLE_ON_SCREEN);
+		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> TooltipDetails.append(stack, flag, lines));
 		// Resource packs may change the recipe book's page colour, so pick the text colour again.
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
@@ -134,7 +138,10 @@ public class CraftersAlmanac implements ClientModInitializer {
 
 		ViewerPanel panel = new ViewerPanel(screen);
 		Screens.getButtons(screen).add(panel);
-		ScreenEvents.afterRender(screen).register((s, graphics, mouseX, mouseY, delta) -> panel.renderTooltip(graphics, mouseX, mouseY));
+		ScreenEvents.afterRender(screen).register((s, graphics, mouseX, mouseY, delta) -> {
+			panel.renderTooltip(graphics, mouseX, mouseY);
+			RecipePreview.render(graphics, hoveredStack(screen, panel), mouseX, mouseY);
+		});
 		ScreenMouseEvents.allowMouseRelease(screen).register((s, mouseX, mouseY, button) -> {
 			if (!ViewerState.consumeRelease()) return true;
 			screen.setDragging(false);

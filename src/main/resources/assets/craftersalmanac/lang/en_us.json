@@ -66,5 +66,21 @@
 	"craftersalmanac.config.highlight_search": "Highlight Search in Inventory",
 	"craftersalmanac.config.highlight_search.tooltip": "While you search, items in the open inventory or chest that don't match fade out, so the matches stand out.",
 	"craftersalmanac.config.quick_stack": "Quick Stack Button",
-	"craftersalmanac.config.quick_stack.tooltip": "Adds a button to chests, barrels and other storage that moves items from your inventory into it when it already has some of them. Your hotbar is never moved."
+	"craftersalmanac.config.quick_stack.tooltip": "Adds a button to chests, barrels and other storage that moves items from your inventory into it when it already has some of them. Your hotbar is never moved.",
+	"craftersalmanac.config.tooltip_details": "Item Details (Hold Alt)",
+	"craftersalmanac.config.tooltip_details.tooltip": "Hold Alt over an item to see what food restores, mining speed, durability, how armor compares with yours, compost chance, fuel time and stack size.",
+	"craftersalmanac.config.recipe_preview": "Recipe Preview (Hold Shift)",
+	"craftersalmanac.config.recipe_preview.tooltip": "Hold Shift over an item to see its recipe beside the tooltip. Items with more than one recipe go through them, with dots showing how many there are.",
+	"craftersalmanac.tooltip.food": "Restores %s hunger, %s saturation",
+	"craftersalmanac.tooltip.mining_speed": "Mining speed: %s",
+	"craftersalmanac.tooltip.durability": "Durability: %s / %s",
+	"craftersalmanac.tooltip.compare": "Compared to your %s:",
+	"craftersalmanac.tooltip.compare_nothing": "Compared to wearing nothing:",
+	"craftersalmanac.tooltip.compare_same": "The same",
+	"craftersalmanac.tooltip.armor": "%s Armor",
+	"craftersalmanac.tooltip.toughness": "%s Armor Toughness",
+	"craftersalmanac.tooltip.compost": "Compost chance: %s%%",
+	"craftersalmanac.tooltip.fuel": "Smelts %s items as fuel",
+	"craftersalmanac.tooltip.stacks": "Stacks to %s",
+	"craftersalmanac.tooltip.no_stack": "Doesn't stack"
 }

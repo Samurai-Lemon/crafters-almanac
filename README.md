@@ -25,6 +25,8 @@ panel doesn't open rather than cover the inventory.
 | Clear search | Right-click the search box |
 | Sort your inventory or a chest | The small button above the top-right of your inventory rows (survival inventory) or of a storage grid (chests, barrels, shulker boxes, hoppers, dispensers). The inventory one leaves the hotbar alone; choose the order in the settings |
 | Quick stack into a chest | The button left of a storage grid's sort button moves everything from your inventory that the chest (barrel, shulker box...) already has into it. Your hotbar stays as it is |
+| Item details | Hold **Alt** over an item: what food restores, mining speed, durability, how armor compares with what you're wearing, compost chance, fuel time and stack size |
+| Quick recipe | Hold **Shift** over an item to see its recipe beside the tooltip. Items with more than one recipe go through them every 2 seconds, with dots under the card showing how many there are |
 | See armor trims | Smithing trim recipes cycle through every armor piece and trim material, with an armor stand wearing the result |
 | Hide / show panel | **O**, or click the almanac button (it uses the vanilla recipe book art) |
 | Settings | Right-click the almanac button, or **Config** in Mod Menu |
@@ -43,6 +45,8 @@ Saved to `config/craftersalmanac.json`.
 - **Highlight Search in Inventory**: fades out inventory items that don't match the search.
 - **Sort Inventory**: how the sort buttons order items: Creative Menu Order, Name, Mod, Amount, or Off (hides the buttons).
 - **Quick Stack Button**: the quick stack button in chests and other storage.
+- **Item Details (Hold Alt)** and **Recipe Preview (Hold Shift)**: the extra tooltip details and the recipe preview,
+  e.g. to turn off if another mod (like AppleSkin) already shows the same.
 
 ## Building
 

@@ -192,6 +192,30 @@ public final class DisplayFactory {
 		return artCard(id, Category.BREWING, Layout.BREWING, card, slots, false, 0, 0);
 	}
 
+	/**
+	 * The brewing recipe for one potion, as a card showing only that potion instead of cycling through every potion
+	 * a recipe takes. A recipe made for just this potion (sugar on an awkward potion) wins over one for any potion
+	 * (gunpowder on any potion). Null if no brewing recipe makes it.
+	 */
+	public static Display brewingFor(List<Display> displays, ItemStack potion) {
+		Display found = null;
+		for (Display display : displays) {
+			if (display.layout() != Layout.BREWING) continue;
+			// See brewing(): the ingredient slot first, then the searched-only potions and results.
+			List<DisplaySlot> slots = display.slots();
+			List<ItemStack> potions = slots.get(slots.size() - 2).stacks();
+			List<ItemStack> results = slots.get(slots.size() - 1).stacks();
+			for (int i = 0; i < results.size(); i++) {
+				if (!ItemStack.isSameItemSameComponents(results.get(i), potion)) continue;
+				Display narrowed = brewing(display.id(), List.of(potions.get(i % potions.size())), slots.get(0).stacks(), List.of(results.get(i)));
+				if (results.size() == 1) return narrowed;
+				if (found == null) found = narrowed;
+				break;
+			}
+		}
+		return found;
+	}
+
 	/** A fuel item and how long it burns: the item, then "Smelts / N items" (drawn by RecipeRenderer). Burn time goes in cookTime. */
 	public static Display fuel(ResourceLocation id, ItemStack stack, int burnTime) {
 		List<DisplaySlot> slots = List.of(new DisplaySlot(0, 4, INPUT, false, List.of(stack)));

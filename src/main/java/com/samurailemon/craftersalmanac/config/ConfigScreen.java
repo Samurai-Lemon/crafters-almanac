@@ -44,6 +44,8 @@ public class ConfigScreen extends Screen {
 				.create(0, 0, COLUMN_WIDTH, 20, Component.translatable("craftersalmanac.config.sort_mode"),
 						(button, mode) -> config.sortMode = mode));
 		toggle("quick_stack", config.quickStack, value -> config.quickStack = value);
+		toggle("tooltip_details", config.tooltipDetails, value -> config.tooltipDetails = value);
+		toggle("recipe_preview", config.recipePreview, value -> config.recipePreview = value);
 
 		// Opened from a container screen (right-clicking our button): offer to switch the viewer off just there.
 		if (parent instanceof AbstractContainerScreen<?>) {
