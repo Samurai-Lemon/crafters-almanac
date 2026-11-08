@@ -45,7 +45,8 @@ public class ConfigScreen extends Screen {
 		toggle("quick_stack", config.quickStack, value -> config.quickStack = value);
 		toggle("tooltip_details", config.tooltipDetails, value -> config.tooltipDetails = value);
 		toggle("recipe_preview", config.recipePreview, value -> config.recipePreview = value);
-		toggle("match_station_screens", config.matchStationScreens, value -> config.matchStationScreens = value);
+		toggle("match_texture_pack", config.matchTexturePack, value -> config.matchTexturePack = value);
+		toggle("developer_mode", config.developerMode, value -> config.developerMode = value);
 
 		// Opened from a crafting screen (right-clicking our button): offer to switch the viewer off just there.
 		if (ScreenSupport.isCraftingScreen(parent)) {

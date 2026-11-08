@@ -46,8 +46,10 @@ public final class ViewerConfig {
 	public boolean tooltipDetails = true;
 	/** An item's recipes beside its tooltip while Shift is held. */
 	public boolean recipePreview = true;
-	/** Frame cards with their station's own screen (see CardFrames); off uses the recipe book's panel for all. */
-	public boolean matchStationScreens = true;
+	/** Cards use the resource packs' textures; off, the default ones as if no pack were loaded (see CardTextures). */
+	public boolean matchTexturePack = true;
+	/** For mod and resource pack makers: recipe tabs show their type, and Ctrl-click writes a starter station file. */
+	public boolean developerMode = false;
 	/** Class names of screens the viewer is switched off on. */
 	public List<String> disabledScreens = new ArrayList<>();
 

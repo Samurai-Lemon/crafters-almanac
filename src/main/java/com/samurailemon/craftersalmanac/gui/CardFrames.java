@@ -1,12 +1,13 @@
 package com.samurailemon.craftersalmanac.gui;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.samurailemon.craftersalmanac.config.ViewerConfig;
 import com.samurailemon.craftersalmanac.recipe.Card;
 import com.samurailemon.craftersalmanac.recipe.Category;
 import com.samurailemon.craftersalmanac.recipe.Display;
+import com.samurailemon.craftersalmanac.recipe.Station;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
@@ -25,8 +26,13 @@ import java.util.Optional;
  * how thick each edge is (scanning in from the edge to the background colour), and a plain patch of its background.
  * It's then drawn nine-slice: corners as they are, edges and middle repeated. Stations without a screen texture we can
  * find (campfire, Oritech's machines, which build their screens from pieces) get the recipe book's panel instead.
- * Measurements are cached per texture and dropped on resource reload (see CraftersAlmanac). The "Match Station
- * Screens" setting turns this off, for resource packs whose screens don't cut up well: every card then gets the panel.
+ * Measurements are cached per texture and dropped on resource reload (see CraftersAlmanac). With "Match Texture Pack"
+ * off, the same is done with the default textures instead of the packs' (see CardTextures).
+ * <p>
+ * Resource packs can skip all this by drawing the frame themselves: a GUI sprite at {@code craftersalmanac:card/frame}
+ * frames every card, and {@code craftersalmanac:card/frame/<namespace>/<type>} one recipe type's (e.g.
+ * {@code card/frame/minecraft/stonecutting}). Give it a nine-slice {@code .mcmeta} so it fits any size. A recipe type's
+ * station file can also name the screen to measure ({@code "frame"}).
  */
 public final class CardFrames {
 	/** A frame measured from a screen texture, in the texture's own 256-wide coordinates (HD packs scale up). */
@@ -35,6 +41,9 @@ public final class CardFrames {
 	}
 
 	private static final ResourceLocation PANEL = ResourceLocation.withDefaultNamespace("recipe_book/overlay_recipe");
+	/** The panel as a frame of our own, for drawing it from its default image file: 32x32 with 4px edges. */
+	private static final Frame DEFAULT_PANEL = new Frame(ResourceLocation.withDefaultNamespace("textures/gui/sprites/recipe_book/overlay_recipe.png"),
+			32, 32, 32, 32, 4, 4, 4, 4, 4, 4);
 	/** Vanilla GUI textures are 256 wide; HD packs use the same layout at a multiple of that. */
 	private static final int VANILLA_SIZE = 256;
 	/** The background patch repeated to fill a card's middle. */
@@ -49,6 +58,11 @@ public final class CardFrames {
 
 	private static final Map<ResourceLocation, Optional<Frame>> FRAMES = new HashMap<>();
 	private static final Map<Category, Optional<ResourceLocation>> MODDED = new HashMap<>();
+	/** Which of the frame sprites a pack can add are there. */
+	private static final Map<ResourceLocation, Boolean> PACK_SPRITES = new HashMap<>();
+	private static final ResourceLocation PACK_FRAME = ResourceLocation.fromNamespaceAndPath("craftersalmanac", "card/frame");
+	/** Whether FRAMES were measured from the packs' textures or the defaults; switching the setting measures again. */
+	private static boolean measuredWithPack = true;
 
 	private CardFrames() {
 	}
@@ -56,6 +70,7 @@ public final class CardFrames {
 	public static void clear() {
 		FRAMES.clear();
 		MODDED.clear();
+		PACK_SPRITES.clear();
 	}
 
 	/**
@@ -71,13 +86,29 @@ public final class CardFrames {
 
 	/** Draws a card's frame from its station's screen, or the recipe book's panel if there's none to use. */
 	public static void draw(GuiGraphics g, Display display, int x, int y, int width, int height) {
-		ResourceLocation screen = !ViewerConfig.get().matchStationScreens ? null
-				: display.card() == Card.PLAIN ? plainScreen(display.category()) : artTexture(display);
+		boolean matchPack = CardTextures.matchPack();
+		if (matchPack != measuredWithPack) {
+			FRAMES.clear();
+			measuredWithPack = matchPack;
+		}
+		if (matchPack) {
+			ResourceLocation packFrame = packFrame(display.category());
+			if (packFrame != null) {
+				g.blitSprite(packFrame, x, y, width, height);
+				return;
+			}
+		}
+		ResourceLocation screen = display.card() == Card.PLAIN ? plainScreen(display.category()) : artTexture(display);
 		Frame frame = screen == null ? null : FRAMES.computeIfAbsent(screen, CardFrames::measure).orElse(null);
-		if (frame == null) {
+		if (frame == null && matchPack) {
 			g.blitSprite(PANEL, x, y, width, height);
 			return;
 		}
+		nineSlice(g, frame == null ? DEFAULT_PANEL : frame, x, y, width, height);
+	}
+
+	/** Corners as they are, edges and middle repeated to fit. */
+	private static void nineSlice(GuiGraphics g, Frame frame, int x, int y, int width, int height) {
 		int l = frame.left();
 		int t = frame.top();
 		int r = frame.right();
@@ -98,8 +129,26 @@ public final class CardFrames {
 		tile(g, frame, x + l, y + t, innerWidth, innerHeight, frame.patchX(), frame.patchY(), PATCH_WIDTH, PATCH_HEIGHT);
 	}
 
-	/** Vanilla stations with a screen; modded ones by guessing where their screen texture is. */
-	private static ResourceLocation plainScreen(Category category) {
+	/** A frame sprite the resource pack added: one for this recipe type, else one for every card. */
+	private static ResourceLocation packFrame(Category category) {
+		ResourceLocation id = category.id();
+		ResourceLocation own = PACK_FRAME.withSuffix("/" + id.getNamespace() + "/" + id.getPath());
+		if (hasSprite(own)) return own;
+		return hasSprite(PACK_FRAME) ? PACK_FRAME : null;
+	}
+
+	private static boolean hasSprite(ResourceLocation sprite) {
+		return PACK_SPRITES.computeIfAbsent(sprite, name -> !Minecraft.getInstance().getGuiSprites().getSprite(name).contents().name()
+				.equals(MissingTextureAtlasSprite.getLocation()));
+	}
+
+	/**
+	 * The screen a plain card is framed like: the one its station file names, vanilla stations' own, or a modded
+	 * machine's found by name.
+	 */
+	public static ResourceLocation plainScreen(Category category) {
+		Station station = Station.of(category.typeId());
+		if (station != null && station.frame() != null) return station.frame();
 		if (category == Category.STONECUTTING) return screen("stonecutter");
 		if (category == Category.SMITHING) return screen("smithing");
 		if (category == Category.FUEL) return Card.FURNACE.texture;
@@ -133,7 +182,7 @@ public final class CardFrames {
 	 * like a framed screen.
 	 */
 	private static Optional<Frame> measure(ResourceLocation texture) {
-		Optional<Resource> resource = Minecraft.getInstance().getResourceManager().getResource(texture);
+		Optional<Resource> resource = CardTextures.resource(texture);
 		if (resource.isEmpty()) return Optional.empty();
 		try (InputStream in = resource.get().open(); NativeImage image = NativeImage.read(in)) {
 			int scale = Math.max(1, image.getWidth() / VANILLA_SIZE);
@@ -210,7 +259,7 @@ public final class CardFrames {
 	/** Part of the screen texture at its real size (in the texture's 256-wide coordinates). */
 	private static void blit(GuiGraphics g, Frame frame, int x, int y, int u, int v, int width, int height) {
 		if (width <= 0 || height <= 0) return;
-		g.blit(frame.texture(), x, y, u, v, width, height, frame.textureWidth(), frame.textureHeight());
+		g.blit(CardTextures.texture(frame.texture()), x, y, u, v, width, height, frame.textureWidth(), frame.textureHeight());
 	}
 
 	/** Fills an area by repeating a piece of the screen texture. */

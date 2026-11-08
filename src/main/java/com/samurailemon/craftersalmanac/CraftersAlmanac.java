@@ -4,12 +4,14 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.samurailemon.craftersalmanac.config.ViewerConfig;
 import com.samurailemon.craftersalmanac.gui.BookColors;
 import com.samurailemon.craftersalmanac.gui.CardFrames;
+import com.samurailemon.craftersalmanac.gui.CardTextures;
 import com.samurailemon.craftersalmanac.gui.Cheats;
 import com.samurailemon.craftersalmanac.gui.InventorySorter;
 import com.samurailemon.craftersalmanac.gui.RecipePreview;
 import com.samurailemon.craftersalmanac.gui.ScreenShift;
 import com.samurailemon.craftersalmanac.gui.ScreenSupport;
 import com.samurailemon.craftersalmanac.gui.SortButton;
+import com.samurailemon.craftersalmanac.gui.Theme;
 import com.samurailemon.craftersalmanac.gui.TooltipDetails;
 import com.samurailemon.craftersalmanac.gui.ViewerButton;
 import com.samurailemon.craftersalmanac.gui.ViewerPanel;
@@ -86,6 +88,8 @@ public class CraftersAlmanac implements ClientModInitializer {
 			public void onResourceManagerReload(ResourceManager manager) {
 				BookColors.clear();
 				CardFrames.clear();
+				CardTextures.clear();
+				Theme.clear();
 			}
 		});
 

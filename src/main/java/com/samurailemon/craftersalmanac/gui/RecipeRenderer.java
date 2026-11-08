@@ -43,11 +43,10 @@ public final class RecipeRenderer {
 	private static final ResourceLocation SLOT = ResourceLocation.withDefaultNamespace("container/slot");
 	/** Plain cards take their result slot and arrow from the furnace screen. */
 	private static final ResourceLocation FURNACE_SCREEN = Card.FURNACE.texture;
-	/** Text on a card: vanilla's container label colour. */
-	static final int CARD_TEXT = 0x404040;
-	/** The "50%" on outputs a recipe only sometimes gives: small, in vanilla's gold, in front of the item. */
+	/** The "50%" on outputs a recipe only sometimes gives: small, in front of the item (its colour is in Theme). */
 	private static final float CHANCE_SCALE = 0.75F;
-	private static final int CHANCE_COLOR = 0xFFFFAA00;
+	/** How long a station's animations take for recipes that don't give a time: the furnace's 10 seconds. */
+	private static final int DEFAULT_ANIMATION_TICKS = 200;
 	/** Text drawn over items has to be in front of them (items are drawn up to 150 deep plus their own depth). */
 	private static final float OVER_ITEMS = 200.0F;
 	private static final DecimalFormat NUMBER = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
@@ -75,21 +74,21 @@ public final class RecipeRenderer {
 				long total = Math.max(1, display.cookTime()) * 50L;
 				long time = Util.getMillis() % total;
 				int lit = 14 - (int) (time * 13 / total);
-				g.blitSprite(FLAME, 14, 14, 0, 14 - lit, x + card.x(56), y + 36 + 14 - lit, 14, lit);
-				g.blitSprite(ARROW_FILL, 24, 16, 0, 0, x + card.x(79), y + 34, (int) (time * 24 / total), 16);
+				CardTextures.sprite(g, FLAME, 14, 14, 0, 14 - lit, x + card.x(56), y + 36 + 14 - lit, 14, lit);
+				CardTextures.sprite(g, ARROW_FILL, 24, 16, 0, 0, x + card.x(79), y + 34, (int) (time * 24 / total), 16);
 				// XP along the top of the card, inside the border; cook time under the arrow.
-				if (showXp) g.drawString(font, Component.translatable("craftersalmanac.xp", NUMBER.format(display.xp())), x + card.x(79), y + 7, CARD_TEXT, false);
-				g.drawString(font, Component.translatable("craftersalmanac.cook_time", NUMBER.format(display.cookTime() / 20.0)), x + card.x(79), y + 53, CARD_TEXT, false);
+				if (showXp) g.drawString(font, Component.translatable("craftersalmanac.xp", NUMBER.format(display.xp())), x + card.x(79), y + 7, Theme.cardText(), false);
+				g.drawString(font, Component.translatable("craftersalmanac.cook_time", NUMBER.format(display.cookTime() / 20.0)), x + card.x(79), y + 53, Theme.cardText(), false);
 			}
 			case BREWING -> {
 				// The bottles show the starting potion for a second while the arrow fills, then the result.
 				long millis = Util.getMillis();
 				boolean brewed = millis / 1000 % 2 == 1;
 				int progress = brewed ? 28 : (int) (millis % 1000 * 28 / 1000);
-				g.blitSprite(BREW_ARROW, 9, 28, 0, 0, x + card.x(97), y + 16, 9, progress);
-				g.blitSprite(BLAZE_FUEL, x + card.x(60), y + 44, 18, 4);
+				CardTextures.sprite(g, BREW_ARROW, 9, 28, 0, 0, x + card.x(97), y + 16, 9, progress);
+				CardTextures.sprite(g, BLAZE_FUEL, 18, 4, 0, 0, x + card.x(60), y + 44, 18, 4);
 				int bubbles = BUBBLE_LENGTHS[(int) (millis / 100) % BUBBLE_LENGTHS.length];
-				if (bubbles > 0) g.blitSprite(BUBBLES, 12, 29, 0, 29 - bubbles, x + card.x(63), y + 14 + 29 - bubbles, 12, bubbles);
+				if (bubbles > 0) CardTextures.sprite(g, BUBBLES, 12, 29, 0, 29 - bubbles, x + card.x(63), y + 14 + 29 - bubbles, 12, bubbles);
 			}
 			case SINGLE, SMITHING, GENERIC -> {
 				// Left of the outputs, centered on them (one big slot, or a grid of several).
@@ -110,7 +109,7 @@ public final class RecipeRenderer {
 					if (display.layout() == Layout.GENERIC && display.cookTime() > 0) {
 						long total = display.cookTime() * 50L;
 						int filled = (int) (Util.getMillis() % total * 24 / total);
-						g.blitSprite(ARROW_FILL, 24, 16, 0, 0, arrowX, arrowY, filled, 16);
+						CardTextures.sprite(g, ARROW_FILL, 24, 16, 0, 0, arrowX, arrowY, filled, 16);
 					}
 				}
 				info(g, font, display, x, y);
@@ -118,8 +117,11 @@ public final class RecipeRenderer {
 			case STATION -> {
 				Station station = display.station();
 				int inset = Card.BORDER + 1;
-				g.blit(station.texture(), x + inset, y + inset, station.u(), station.v(), station.width(), station.height(),
+				g.blit(CardTextures.texture(station.texture()), x + inset, y + inset, station.u(), station.v(), station.width(), station.height(),
 						station.textureWidth(), station.textureHeight());
+				for (Station.Animation animation : station.animations()) {
+					animate(g, animation, display.cookTime(), x + inset, y + inset);
+				}
 				info(g, font, display, x, y);
 			}
 			case TRIM -> {
@@ -132,9 +134,9 @@ public final class RecipeRenderer {
 			case FUEL -> {
 				// Two short lines so even "100 items" (lava bucket) stays clear of the favorite star.
 				DisplaySlot item = display.slots().get(0);
-				g.drawString(font, Component.translatable("craftersalmanac.fuel.smelts"), x + item.x() + 22, y + item.y() - 1, CARD_TEXT, false);
+				g.drawString(font, Component.translatable("craftersalmanac.fuel.smelts"), x + item.x() + 22, y + item.y() - 1, Theme.cardText(), false);
 				Component items = Component.translatable("craftersalmanac.fuel.items", NUMBER.format(display.cookTime() / 200.0));
-				g.drawString(font, items, x + item.x() + 22, y + item.y() + 10, CARD_TEXT, false);
+				g.drawString(font, items, x + item.x() + 22, y + item.y() + 10, Theme.cardText(), false);
 			}
 			case CRAFTING -> {
 			}
@@ -159,7 +161,7 @@ public final class RecipeRenderer {
 		g.pose().pushPose();
 		g.pose().translate(x, y, OVER_ITEMS);
 		g.pose().scale(CHANCE_SCALE, CHANCE_SCALE, 1.0F);
-		g.drawString(font, percent(chance), 0, 0, CHANCE_COLOR, true);
+		g.drawString(font, percent(chance), 0, 0, Theme.chanceText(), true);
 		g.pose().popPose();
 	}
 
@@ -168,7 +170,45 @@ public final class RecipeRenderer {
 		return Math.round(chance * 100) + "%";
 	}
 
-	/** A modded recipe's time and XP ("5s  1 XP"), along the bottom of the card left of the buttons. */
+	/**
+	 * One of a station's animations (see Station.Animation): part of its art filling from one side over the recipe's
+	 * time, or {@link #DEFAULT_ANIMATION_TICKS} if the recipe doesn't say.
+	 */
+	private static void animate(GuiGraphics g, Station.Animation animation, int recipeTicks, int x, int y) {
+		long total = (recipeTicks > 0 ? recipeTicks : DEFAULT_ANIMATION_TICKS) * 50L;
+		float done = (float) (Util.getMillis() % total) / total;
+		int w = animation.width();
+		int h = animation.height();
+		int u = animation.u();
+		int v = animation.v();
+		int ax = x + animation.x();
+		int ay = y + animation.y();
+		switch (animation.fill()) {
+			case "right" -> w = Math.round(w * done);
+			case "left" -> {
+				int shown = Math.round(w * done);
+				ax += w - shown;
+				u += w - shown;
+				w = shown;
+			}
+			case "down" -> h = Math.round(h * done);
+			case "up" -> {
+				int shown = Math.round(h * done);
+				ay += h - shown;
+				v += h - shown;
+				h = shown;
+			}
+			default -> {
+			}
+		}
+		if (w <= 0 || h <= 0) return;
+		g.blit(CardTextures.texture(animation.texture()), ax, ay, u, v, w, h, animation.textureWidth(), animation.textureHeight());
+	}
+
+	/**
+	 * A modded recipe's time and XP ("5s  1 XP"), along the bottom of the card left of the buttons, or where the
+	 * station file's "info" puts it.
+	 */
 	private static void info(GuiGraphics g, Font font, Display display, int x, int y) {
 		if (display.cookTime() <= 0 && display.xp() <= 0) return;
 		MutableComponent text = Component.empty();
@@ -179,7 +219,13 @@ public final class RecipeRenderer {
 			if (display.cookTime() > 0) text.append("  ");
 			text.append(Component.translatable("craftersalmanac.xp", NUMBER.format(display.xp())));
 		}
-		g.drawString(font, text, x + Card.BORDER + 2, y + display.buttonY() + 2, CARD_TEXT, false);
+		Station station = display.station();
+		if (station != null && station.info() != null) {
+			int inset = Card.BORDER + 1;
+			g.drawString(font, text, x + inset + station.info()[0], y + inset + station.info()[1], Theme.cardText(), false);
+		} else {
+			g.drawString(font, text, x + Card.BORDER + 2, y + display.buttonY() + 2, Theme.cardText(), false);
+		}
 	}
 
 	/** The frame (see CardFrames), and for art cards the middle of the station's screen inside it. */
@@ -188,7 +234,7 @@ public final class RecipeRenderer {
 		Card card = display.card();
 		if (card == Card.PLAIN) return;
 		int b = Card.BORDER;
-		g.blit(CardFrames.artTexture(display), x + b, y + b, card.keepX, b, Card.KEPT, display.height() - 2 * b);
+		g.blit(CardTextures.texture(CardFrames.artTexture(display)), x + b, y + b, card.keepX, b, Card.KEPT, display.height() - 2 * b);
 	}
 
 	/**
@@ -215,17 +261,17 @@ public final class RecipeRenderer {
 
 	/** The furnace screen's arrow (24x16), in the space layouts leave for an arrow. */
 	private static void arrow(GuiGraphics g, int x, int y) {
-		g.blit(FURNACE_SCREEN, x, y, 79, 34, 24, 16);
+		g.blit(CardTextures.texture(FURNACE_SCREEN), x, y, 79, 34, 24, 16);
 	}
 
 	/** A slot centered in a slot area: the furnace screen's result slot for 26 and up, else vanilla's slot sprite. */
 	static void slot(GuiGraphics g, int x, int y, int size) {
 		if (size >= 26) {
 			int inset = (size - 26) / 2;
-			g.blit(FURNACE_SCREEN, x + inset, y + inset, 111, 30, 26, 26);
+			g.blit(CardTextures.texture(FURNACE_SCREEN), x + inset, y + inset, 111, 30, 26, 26);
 		} else {
 			int inset = (size - 18) / 2;
-			g.blitSprite(SLOT, x + inset, y + inset, 18, 18);
+			CardTextures.sprite(g, SLOT, 18, 18, 0, 0, x + inset, y + inset, 18, 18);
 		}
 	}
 }

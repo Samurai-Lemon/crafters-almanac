@@ -95,8 +95,6 @@ public class ViewerPanel extends AbstractWidget {
 	/** A favorites row: a plain card just tall enough for an item, three filling the page with gaps between. */
 	private static final int FAVORITE_ROW = 28;
 	private static final int FAVORITE_ROW_GAP = 2;
-	/** Grey for the line under a favorite's name, like vanilla's disabled text. */
-	private static final int SUBTITLE = 0x707070;
 	/** Favorites rows use smaller text so longer names fit beside the buttons. */
 	private static final float FAVORITE_TEXT_SCALE = 0.75F;
 	/** Long favorite names scroll at this many screen pixels a second, with this much space before they repeat. */
@@ -235,7 +233,17 @@ public class ViewerPanel extends AbstractWidget {
 		for (int i = 0; i < shownTabs; i++) {
 			Category category = categories.get((view.tabScroll + i) % count);
 			Component tooltip = Component.empty().append(category.title()).append(" (" + view.count(category) + ")");
-			renderTab(g, i + 2, category.icon, null, view.selected == category, tooltip, () -> view.select(category));
+			boolean developer = ViewerConfig.get().developerMode && category.typeId() != null;
+			List<Component> extra = developer
+					? List.of(Component.translatable("craftersalmanac.dev.tab", category.typeId().toString()).withStyle(ChatFormatting.GRAY))
+					: List.of();
+			renderTab(g, i + 2, category.icon, null, view.selected == category, tooltip, extra, () -> {
+				if (developer && Screen.hasControlDown()) {
+					StationTemplate.write(category);
+				} else {
+					view.select(category);
+				}
+			});
 		}
 		if (overflow) {
 			Component tooltip = Component.translatable("craftersalmanac.tab.more", count - shownTabs, count);
@@ -248,6 +256,11 @@ public class ViewerPanel extends AbstractWidget {
 	 * favorites tab, drawn at its real size where an item icon goes.
 	 */
 	private void renderTab(GuiGraphics g, int index, ItemStack icon, String label, boolean selected, Component tooltip, Runnable action) {
+		renderTab(g, index, icon, label, selected, tooltip, List.of(), action);
+	}
+
+	private void renderTab(GuiGraphics g, int index, ItemStack icon, String label, boolean selected, Component tooltip,
+			List<Component> extra, Runnable action) {
 		int x = bookX - 30 + (selected ? -2 : 0);
 		int y = bookY + 3 + TAB_HEIGHT * index;
 		g.blitSprite(selected ? TAB_SELECTED : TAB, x, y, 35, TAB_HEIGHT);
@@ -259,7 +272,7 @@ public class ViewerPanel extends AbstractWidget {
 			int inset = (16 - FAVORITE_SIZE) / 2;
 			g.blitSprite(FAVORITE, x + 9 + inset, y + 5 + inset, FAVORITE_SIZE, FAVORITE_SIZE);
 		}
-		hits.add(Hit.button(x, y, 35, TAB_HEIGHT, tooltip, action));
+		hits.add(Hit.button(x, y, 35, TAB_HEIGHT, tooltip, extra, action));
 	}
 
 	/** Vanilla's "Showing Craftable / Showing All" toggle, in the same spot as in the vanilla book. */
@@ -412,8 +425,8 @@ public class ViewerPanel extends AbstractWidget {
 
 		int textX = x + inner + 1 + 16 + 4;
 		int textWidth = nextX - 3 - textX;
-		smallText(g, result.getHoverName().getString(), textX, y + inner + 2, textWidth, 0x404040);
-		smallText(g, display.category().title().getString(), textX, y + inner + 9, textWidth, SUBTITLE);
+		smallText(g, result.getHoverName().getString(), textX, y + inner + 2, textWidth, Theme.cardText());
+		smallText(g, display.category().title().getString(), textX, y + inner + 9, textWidth, Theme.cardSubtext());
 	}
 
 	/**
@@ -478,7 +491,7 @@ public class ViewerPanel extends AbstractWidget {
 	private int renderHeading(GuiGraphics g, Component text, int x, int y) {
 		List<String> lines = headingLines(font, text);
 		for (int i = 0; i < lines.size(); i++) {
-			g.drawString(font, lines.get(i), x, y + i * HEADING_LINE, BookColors.textColor(), false);
+			g.drawString(font, lines.get(i), x, y + i * HEADING_LINE, Theme.headingText(), false);
 		}
 		if (lines.get(lines.size() - 1).endsWith(ELLIPSIS) && !text.getString().endsWith(ELLIPSIS)) {
 			hits.add(Hit.button(x, y, CONTENT_WIDTH, lines.size() * HEADING_LINE, text, null));
@@ -489,7 +502,7 @@ public class ViewerPanel extends AbstractWidget {
 	/** A message centred on the page, wrapped to the page width. Returns the y just below it. */
 	private int centeredText(GuiGraphics g, Component text, int y) {
 		for (FormattedCharSequence line : font.split(text, CONTENT_WIDTH)) {
-			g.drawString(font, line, bookX + 73 - font.width(line) / 2, y, BookColors.textColor(), false);
+			g.drawString(font, line, bookX + 73 - font.width(line) / 2, y, Theme.headingText(), false);
 			y += HEADING_LINE;
 		}
 		return y;
@@ -523,7 +536,7 @@ public class ViewerPanel extends AbstractWidget {
 		Map<Item, Integer> have = RecipeTransfer.available(screen.getMenu());
 		String amount = "\u00D7" + materials.amount;
 		int amountX = left + (CONTENT_WIDTH - font.width(amount)) / 2;
-		g.drawString(font, amount, amountX, top + 14, BookColors.textColor(), false);
+		g.drawString(font, amount, amountX, top + 14, Theme.headingText(), false);
 		amountButton(g, materials, have, "-", -1, amountX - 3 - TRANSFER_SIZE, top + 12, mouseX, mouseY);
 		amountButton(g, materials, have, "+", 1, amountX + font.width(amount) + 3, top + 12, mouseX, mouseY);
 

@@ -20,19 +20,29 @@ import net.minecraft.world.level.material.Fluid;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * What a modded recipe holds beyond its ingredients, read from the recipe the way its mod saves it (its serializer's
  * codec, written out as JSON). Mods name things differently, so this looks for the usual names: several outputs with
  * chances (a crusher's bonus dust, a cutting board's extra drops), cook or processing time, XP, a tool or container
- * the recipe needs, and fluids (shown as their bucket). Mods whose recipes say nothing like this just get their
- * ingredients and result, as before.
+ * the recipe needs, and fluids (shown as their bucket). A recipe type's station file can add the mod's own names for
+ * these ({@code "fields"}, see Station); they're tried before the usual ones. Mods whose recipes say nothing like
+ * this just get their ingredients and result.
  */
 public final class RecipeData {
 	/** One output, and how likely it is (1 = always). */
 	public record Output(ItemStack stack, float chance) {
 	}
 
+	/** What a station file's "fields" can name, with the usual names for each. */
+	public static final String OUTPUTS = "outputs";
+	public static final String TIME = "time";
+	public static final String XP = "xp";
+	public static final String EXTRA_INPUTS = "extra_inputs";
+	public static final String FLUID_INPUTS = "fluid_inputs";
+	public static final String FLUID_OUTPUTS = "fluid_outputs";
 	private static final List<String> OUTPUT_KEYS = List.of("result", "results", "output", "outputs");
 	private static final List<String> TIME_KEYS = List.of("cookingtime", "cooking_time", "cookTime", "time", "processingtime",
 			"processing_time", "processingTime", "duration");
@@ -45,27 +55,47 @@ public final class RecipeData {
 
 	private final JsonObject json;
 	private final RegistryOps<JsonElement> ops;
+	/** The mod's own names from its station file, by what they are (OUTPUTS, TIME...). */
+	private final Map<String, List<String>> names;
 	/** Worked out the first time they're asked for. */
 	private List<Output> outputs;
 
-	private RecipeData(JsonObject json, RegistryOps<JsonElement> ops) {
+	private RecipeData(JsonObject json, RegistryOps<JsonElement> ops, Map<String, List<String>> names) {
 		this.json = json;
 		this.ops = ops;
+		this.names = names;
 	}
 
-	/** Null if the recipe can't be written out (some mods' recipes only go one way). */
+	/**
+	 * Null if the recipe can't be written out (some mods' recipes only go one way). {@code names} are the mod's own
+	 * field names from its station file, if any.
+	 */
 	@SuppressWarnings("unchecked")
-	public static RecipeData read(Recipe<?> recipe, HolderLookup.Provider registries) {
+	public static RecipeData read(Recipe<?> recipe, HolderLookup.Provider registries, Map<String, List<String>> names) {
 		try {
 			RegistryOps<JsonElement> ops = registries.createSerializationContext(JsonOps.INSTANCE);
 			MapCodec<Recipe<?>> codec = (MapCodec<Recipe<?>>) recipe.getSerializer().codec();
 			return codec.codec().encodeStart(ops, recipe).result()
 					.filter(JsonElement::isJsonObject)
-					.map(json -> new RecipeData(json.getAsJsonObject(), ops))
+					.map(json -> new RecipeData(json.getAsJsonObject(), ops, names))
 					.orElse(null);
 		} catch (RuntimeException e) {
 			return null;
 		}
+	}
+
+	/** The recipe's field names, as its mod saves it (for Developer Mode's starter files). */
+	public Set<String> fieldNames() {
+		return json.keySet();
+	}
+
+	/** The mod's own names for something, then the usual ones. */
+	private List<String> keys(String what, List<String> usual) {
+		List<String> own = names.get(what);
+		if (own == null || own.isEmpty()) return usual;
+		List<String> keys = new ArrayList<>(own);
+		keys.addAll(usual);
+		return keys;
 	}
 
 	/** Every output with its chance, then fluid outputs as buckets. */
@@ -76,13 +106,13 @@ public final class RecipeData {
 
 	private List<Output> readOutputs() {
 		List<Output> found = new ArrayList<>();
-		for (String key : OUTPUT_KEYS) {
+		for (String key : keys(OUTPUTS, OUTPUT_KEYS)) {
 			for (JsonElement element : elements(key)) {
 				Output output = output(element);
 				if (output != null) found.add(output);
 			}
 		}
-		for (String key : FLUID_OUTPUT_KEYS) {
+		for (String key : keys(FLUID_OUTPUTS, FLUID_OUTPUT_KEYS)) {
 			for (JsonElement element : elements(key)) {
 				ItemStack bucket = bucket(element);
 				if (!bucket.isEmpty()) found.add(new Output(bucket, 1.0F));
@@ -94,11 +124,11 @@ public final class RecipeData {
 	/** Tools, containers and fluids (as buckets) the recipe needs as well as its ingredients. */
 	public List<List<ItemStack>> extraInputs() {
 		List<List<ItemStack>> inputs = new ArrayList<>();
-		for (String key : EXTRA_INPUT_KEYS) {
+		for (String key : keys(EXTRA_INPUTS, EXTRA_INPUT_KEYS)) {
 			List<ItemStack> stacks = stacks(key);
 			if (!stacks.isEmpty()) inputs.add(stacks);
 		}
-		for (String key : FLUID_INPUT_KEYS) {
+		for (String key : keys(FLUID_INPUTS, FLUID_INPUT_KEYS)) {
 			for (JsonElement element : elements(key)) {
 				ItemStack bucket = bucket(element);
 				if (!bucket.isEmpty()) inputs.add(List.of(bucket));
@@ -120,11 +150,11 @@ public final class RecipeData {
 
 	/** In ticks, or 0 if the recipe doesn't say. */
 	public int time() {
-		return (int) number(TIME_KEYS);
+		return (int) number(keys(TIME, TIME_KEYS));
 	}
 
 	public float xp() {
-		return number(XP_KEYS);
+		return number(keys(XP, XP_KEYS));
 	}
 
 	private float number(List<String> keys) {

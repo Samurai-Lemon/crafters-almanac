@@ -76,6 +76,11 @@ public final class Category implements Comparable<Category> {
 		return title;
 	}
 
+	/** The tab's ID: the recipe type's, or craftersalmanac:brewing and craftersalmanac:fuel for the virtual tabs. */
+	public ResourceLocation id() {
+		return ResourceLocation.parse(id);
+	}
+
 	/** The recipe type's ID, or null for virtual tabs. */
 	public ResourceLocation typeId() {
 		return type == null ? null : BuiltInRegistries.RECIPE_TYPE.getKey(type);

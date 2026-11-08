@@ -7,5 +7,9 @@
 	"output": [95, 10],
 	"slots": {
 		"container": [63, 39]
-	}
+	},
+	"animations": [
+		{ "texture": "farmersdelight:textures/gui/cooking_pot.png", "uv": [176, 15], "size": [24, 17], "at": [60, 9], "fill": "right" },
+		{ "texture": "farmersdelight:textures/gui/cooking_pot.png", "uv": [176, 0], "size": [17, 15], "at": [18, 39] }
+	]
 }

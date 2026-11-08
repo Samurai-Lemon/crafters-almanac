@@ -5,6 +5,7 @@ import com.samurailemon.craftersalmanac.mixin.SmithingTrimRecipeAccessor;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -63,12 +64,16 @@ public final class DisplayFactory {
 	public static Display create(RecipeHolder<?> holder, HolderLookup.Provider registries) {
 		Recipe<?> recipe = holder.value();
 		if (recipe.isSpecial()) return null;
+		// A station file can hide its recipe type, or name the recipe's fields its own way.
+		Station station = Station.of(BuiltInRegistries.RECIPE_TYPE.getKey(recipe.getType()));
+		if (station != null && station.hidden()) return null;
+		Map<String, List<String>> names = station == null ? Map.of() : station.fields();
 
 		ItemStack result = recipe.getResultItem(registries);
 		RecipeData data = null;
 		if (result.isEmpty()) {
 			// Machines with several outputs (Oritech's) may not name a single result; read them from the recipe itself.
-			data = RecipeData.read(recipe, registries);
+			data = RecipeData.read(recipe, registries, names);
 			List<RecipeData.Output> outputs = data == null ? List.of() : data.outputs();
 			if (outputs.isEmpty()) return null;
 			result = outputs.get(0).stack();
@@ -112,14 +117,14 @@ public final class DisplayFactory {
 			slots.add(output(85, 0, OUTPUT, result));
 			return plainCard(holder.id(), category, Layout.SMITHING, 85 + OUTPUT, OUTPUT, slots, 0);
 		}
-		return modded(holder.id(), category, recipe, result, data != null ? data : RecipeData.read(recipe, registries));
+		return modded(holder.id(), category, recipe, result, data != null ? data : RecipeData.read(recipe, registries, names), station);
 	}
 
 	/**
 	 * Any other recipe, usually a modded machine's: on the machine's own art if there's a station layout for it that
 	 * the recipe fits, else the generic card. Either way with the outputs, chances, time and XP the recipe holds.
 	 */
-	private static Display modded(ResourceLocation id, Category category, Recipe<?> recipe, ItemStack result, RecipeData data) {
+	private static Display modded(ResourceLocation id, Category category, Recipe<?> recipe, ItemStack result, RecipeData data, Station station) {
 		List<List<ItemStack>> inputs = new ArrayList<>(recipe.getIngredients().stream()
 				.filter(ingredient -> !ingredient.isEmpty())
 				.map(ingredient -> List.of(ingredient.getItems()))
@@ -128,8 +133,7 @@ public final class DisplayFactory {
 		if (outputs.isEmpty()) outputs = List.of(new RecipeData.Output(result, 1.0F));
 		int time = data == null ? 0 : data.time();
 		float xp = data == null ? 0 : data.xp();
-		Station station = Station.of(category.typeId());
-		if (station != null && inputs.size() <= station.inputs().size()) {
+		if (station != null && station.hasArt() && inputs.size() <= station.inputs().size()) {
 			return station(id, category, station, inputs, outputs, data, time, xp);
 		}
 		if (data != null) inputs.addAll(data.extraInputs());
@@ -137,9 +141,9 @@ public final class DisplayFactory {
 	}
 
 	/**
-	 * A recipe on its machine's art (see Station): ingredients and the first output where the layout puts them, and
-	 * the layout's extra slots filled from the recipe's fields (the Cooking Pot's bowl). Outputs the art has no place
-	 * for are still searched. Time and XP go in the strip along the bottom, left of the buttons.
+	 * A recipe on its machine's art (see Station): ingredients and outputs where the layout puts them, and the layout's
+	 * extra slots filled from the recipe's fields (the Cooking Pot's bowl). Outputs the art has no place for are still
+	 * searched. Time and XP go in the strip along the bottom, left of the buttons, unless the layout places them.
 	 */
 	private static Display station(ResourceLocation id, Category category, Station station, List<List<ItemStack>> inputs,
 			List<RecipeData.Output> outputs, RecipeData data, int time, float xp) {
@@ -151,8 +155,14 @@ public final class DisplayFactory {
 		}
 		RecipeData.Output first = outputs.get(0);
 		slots.add(DisplaySlot.chanceOutput(inset + station.output()[0], inset + station.output()[1], CARD_SLOT, first.stack(), first.chance()));
-		for (RecipeData.Output other : outputs.subList(1, outputs.size())) {
-			slots.add(DisplaySlot.searchedOnly(true, List.of(other.stack().copy())));
+		for (int i = 1; i < outputs.size(); i++) {
+			RecipeData.Output other = outputs.get(i);
+			if (i - 1 < station.outputs().size()) {
+				int[] at = station.outputs().get(i - 1);
+				slots.add(DisplaySlot.chanceOutput(inset + at[0], inset + at[1], CARD_SLOT, other.stack(), other.chance()));
+			} else {
+				slots.add(DisplaySlot.searchedOnly(true, List.of(other.stack().copy())));
+			}
 		}
 		if (data != null) {
 			for (Map.Entry<String, int[]> extra : station.slots().entrySet()) {

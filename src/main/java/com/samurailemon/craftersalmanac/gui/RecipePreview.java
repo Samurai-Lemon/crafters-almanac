@@ -160,7 +160,7 @@ public final class RecipePreview {
 		int room = display.width() - Card.BORDER - 1 - left;
 		String title = display.category().title().getString();
 		if (font.width(title) > room) title = font.plainSubstrByWidth(title, room - font.width(ELLIPSIS)) + ELLIPSIS;
-		g.drawString(font, title, left, HEADER_Y, RecipeRenderer.CARD_TEXT, false);
+		g.drawString(font, title, left, HEADER_Y, Theme.cardText(), false);
 	}
 
 	/** Under the card: a dot per recipe with the shown one lit, or "2/15" when there are too many for dots. */

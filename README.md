@@ -51,8 +51,10 @@ Saved to `config/craftersalmanac.json`.
 - **Quick Stack Button**: the quick stack button in chests and other storage.
 - **Item Details (Hold Alt)** and **Recipe Preview (Hold Shift)**: the extra tooltip details and the recipe preview,
   e.g. to turn off if another mod (like AppleSkin) already shows the same.
-- **Match Station Screens**: frames each card with its station's own screen so it matches your resource pack. Turn it
-  off if a pack's screens make the cards look wrong; every card then uses the recipe book's panel.
+- **Match Texture Pack**: recipe cards use your resource pack's textures, each framed like its station's screen. Turn
+  it off if a pack makes the cards look wrong; they then use the default textures, as if no pack were loaded.
+- **Developer Mode**: for mod and resource pack makers. Recipe tabs show their recipe type, and Ctrl-clicking one writes
+  a starter station file (see [COMPATIBILITY.md](COMPATIBILITY.md)).
 
 ## Building
 
@@ -83,7 +85,8 @@ To play with it, put `build/libs/crafters-almanac-<version>.jar` and
   (`gui/CardFrames`): the screen texture is measured when loaded (its size, each edge's thickness, an even patch of its
   background) and cut nine-slice to fit the card, so cards match packs that colour each screen differently. Modded
   machines' screens are found by name (e.g. `farmersdelight:textures/gui/cooking_pot.png`); stations without one get
-  the recipe book's panel (`recipe_book/overlay_recipe`). Crafting, cooking and brewing cards show the middle
+  the recipe book's panel (`recipe_book/overlay_recipe`). With Match Texture Pack off, `gui/CardTextures` reads the
+  default textures from under every resource pack instead and draws those. Crafting, cooking and brewing cards show the middle
   of the station's real screen texture (`crafting_table.png`, `furnace.png`, `blast_furnace.png`, `smoker.png`,
   `brewing_stand.png`) inside the frame,
   128 wide, with the recipe's items at the screens' own slot positions, animated with the screens' own sprites
@@ -124,22 +127,7 @@ card), a tool or container it needs, and fluids (shown as their bucket). That's 
 their outputs in a list of their own, like Oritech's, show up at all. Limits: energy isn't shown, outputs past three
 rows aren't drawn (but are still searched), and recipes with more than 9 inputs are skipped.
 
-A machine can also be drawn on its own GUI art (`recipe/Station`). A layout file says which part of the mod's texture
-to use and where the items go; the texture is read from the mod while the game runs, so none of its art ships with
-this mod. The file for recipe type `<mod>:<type>` goes in `assets/<any namespace>/craftersalmanac/stations/<mod>/<type>.json`,
-so resource packs and other mods can add their own. The Farmer's Delight Cooking Pot's is included:
-
-```json
-{
-	"icon": "farmersdelight:cooking_pot",
-	"texture": "farmersdelight:textures/gui/jei/cooking_pot.png",
-	"texture_size": [256, 256],
-	"region": [0, 0, 116, 56],
-	"inputs": [[1, 1], [19, 1], [37, 1], [1, 19], [19, 19], [37, 19]],
-	"output": [95, 10],
-	"slots": { "container": [63, 39] }
-}
-```
-
-`region` is x, y, width and height in the texture (at most 116 wide to fit the card). Positions are where each 16x16
-item goes, from the region's top-left. `slots` places other fields of the recipe (here the bowl it's served in).
+A machine can also be drawn on its own GUI art, have its own field names read, or be hidden, with a station file
+(`recipe/Station`); the Farmer's Delight Cooking Pot's is included. Resource packs can draw the card frames and set
+the text colours themselves. All of this is plain resource files, described for mod and pack makers in
+[COMPATIBILITY.md](COMPATIBILITY.md), along with Developer Mode, which writes a starter station file for any recipe tab.
