@@ -3,6 +3,8 @@ package com.samurailemon.craftersalmanac;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.samurailemon.craftersalmanac.config.ViewerConfig;
 import com.samurailemon.craftersalmanac.gui.BookColors;
+import com.samurailemon.craftersalmanac.gui.CardFrames;
+import com.samurailemon.craftersalmanac.gui.Cheats;
 import com.samurailemon.craftersalmanac.gui.InventorySorter;
 import com.samurailemon.craftersalmanac.gui.RecipePreview;
 import com.samurailemon.craftersalmanac.gui.ScreenShift;
@@ -14,8 +16,10 @@ import com.samurailemon.craftersalmanac.gui.ViewerPanel;
 import com.samurailemon.craftersalmanac.gui.ViewerState;
 import com.samurailemon.craftersalmanac.mixin.AbstractContainerScreenAccessor;
 import com.samurailemon.craftersalmanac.mixin.ImageButtonAccessor;
+import com.samurailemon.craftersalmanac.recipe.Station;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -69,7 +73,9 @@ public class CraftersAlmanac implements ClientModInitializer {
 		KeyBindingHelper.registerKeyBinding(TOGGLE);
 		KeyBindingHelper.registerKeyBinding(DISABLE_ON_SCREEN);
 		ItemTooltipCallback.EVENT.register((stack, context, flag, lines) -> TooltipDetails.append(stack, flag, lines));
-		// Resource packs may change the recipe book's page colour, so pick the text colour again.
+		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> overlay || Cheats.allowMessage(message));
+		// Resource packs may change the recipe book's page colour and the screens cards are framed with, so read them again.
+		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(Station.LOADER);
 		ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
 			@Override
 			public ResourceLocation getFabricId() {
@@ -79,6 +85,7 @@ public class CraftersAlmanac implements ClientModInitializer {
 			@Override
 			public void onResourceManagerReload(ResourceManager manager) {
 				BookColors.clear();
+				CardFrames.clear();
 			}
 		});
 
@@ -94,7 +101,7 @@ public class CraftersAlmanac implements ClientModInitializer {
 		if (screen != lastScreen.get()) {
 			lastScreen = new WeakReference<>(screen);
 			relaidOut = false;
-			ViewerState.reset();
+			ViewerState.screenOpened();
 		}
 		// Registered even on disabled screens, so the key can switch the viewer back on.
 		ScreenKeyboardEvents.allowKeyPress(screen).register((s, key, scancode, modifiers) -> {
@@ -122,7 +129,8 @@ public class CraftersAlmanac implements ClientModInitializer {
 			vanillaButton.visible = false;
 			vanillaButton.active = false;
 		}
-		if (config.showViewerButton) {
+		// Storage gets no button: the almanac only opens there when R or U asks for an item's recipes or uses.
+		if (config.showViewerButton && ScreenSupport.isCraftingScreen(screen)) {
 			Screens.getButtons(screen).add(new ViewerButton(screen, vanillaButton, hideVanilla));
 		}
 

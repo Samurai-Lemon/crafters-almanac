@@ -6,14 +6,23 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.BeaconMenu;
+import net.minecraft.world.inventory.HorseInventoryMenu;
+import net.minecraft.world.inventory.MerchantMenu;
 import net.minecraft.world.inventory.Slot;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * How we fit into screens other mods make. Two parts:
+ * Which screens get the almanac, and how we fit into screens other mods make:
  * <ul>
+ * <li>Crafting screens: the almanac is for making things, so it stays open on the inventory, crafting stations,
+ * furnaces and other machines. On storage it only opens when R or U asks for an item's recipes or uses.</li>
  * <li>Extras: some screens put slots or buttons outside their official container box (side tabs, upgrade slots,
  * accessory slots). We measure how far they reach after each init and remember it per screen class, so the next
  * layout leaves room for them.</li>
@@ -27,11 +36,35 @@ public final class ScreenSupport {
 		static final Extras NONE = new Extras(0, 0);
 	}
 
+	/**
+	 * A modded screen with at least this many slots of its own (besides the player's) is taken to be storage, like a
+	 * single chest. Machines, even big ones, have fewer.
+	 */
+	private static final int STORAGE_SLOTS = 27;
 	/** Things further than this from the container are probably not attached to it (e.g. a button in a screen corner). */
 	private static final int MAX_REACH = 100;
 	private static final Map<Class<?>, Extras> EXTRAS = new HashMap<>();
 
 	private ScreenSupport() {
+	}
+
+	/**
+	 * Whether the almanac stays open on this screen: one for making things (the inventory, crafting table, furnaces,
+	 * smithing, brewing, modded machines), not storage (chests, barrels, shulker boxes, hoppers, dispensers, mods'
+	 * chests and backpacks), animal inventories, trading or beacons.
+	 */
+	public static boolean isCraftingScreen(Screen screen) {
+		if (screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen) return true;
+		if (!(screen instanceof AbstractContainerScreen<?> container)) return false;
+		AbstractContainerMenu menu = container.getMenu();
+		if (InventorySorter.isStorage(menu) || menu instanceof HorseInventoryMenu || menu instanceof MerchantMenu || menu instanceof BeaconMenu) {
+			return false;
+		}
+		int own = 0;
+		for (Slot slot : menu.slots) {
+			if (!(slot.container instanceof Inventory)) own++;
+		}
+		return own < STORAGE_SLOTS;
 	}
 
 	public static Extras extras(Screen screen) {

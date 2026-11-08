@@ -7,6 +7,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.armortrim.ArmorTrim;
@@ -26,13 +27,15 @@ import net.minecraft.world.item.crafting.SmithingTrimRecipe;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * Converts recipes into {@link Display}s, each laid out on a {@link Card}. Crafting, cooking and brewing use the art
  * cards, with slots at the positions drawn into them (vanilla's own screen positions). Everything else is laid out
  * from (0, 0) and then put on a plain card. The layout comes from the recipe's class, so a mod's own cooking or
- * single-item recipe types look like vanilla's; anything else gets the generic grid.
+ * single-item recipe types look like vanilla's. Other modded recipes go on their machine's art if there's a
+ * {@link Station} layout for them, else the generic grid, with whatever else {@link RecipeData} finds in them.
  */
 public final class DisplayFactory {
 	/** Slots drawn into the art cards are 16x16 (the item itself) and 24x24 for results. */
@@ -48,6 +51,10 @@ public final class DisplayFactory {
 	private static final int GENERIC_COLUMNS = 3;
 	/** More rows than this wouldn't fit on a page. */
 	private static final int GENERIC_MAX_ROWS = 3;
+	/** The widest a plain card's contents can be and still fit the page. */
+	private static final int MAX_CONTENT_WIDTH = Card.WIDTH - 2 * (Card.BORDER + PADDING);
+	/** Station cards: the machine art sits this far inside the card's edge. */
+	private static final int STATION_INSET = Card.BORDER + 1;
 
 	private DisplayFactory() {
 	}
@@ -58,7 +65,14 @@ public final class DisplayFactory {
 		if (recipe.isSpecial()) return null;
 
 		ItemStack result = recipe.getResultItem(registries);
-		if (result.isEmpty()) return null;
+		RecipeData data = null;
+		if (result.isEmpty()) {
+			// Machines with several outputs (Oritech's) may not name a single result; read them from the recipe itself.
+			data = RecipeData.read(recipe, registries);
+			List<RecipeData.Output> outputs = data == null ? List.of() : data.outputs();
+			if (outputs.isEmpty()) return null;
+			result = outputs.get(0).stack();
+		}
 		Category category = Category.of(recipe, result);
 
 		List<DisplaySlot> slots = new ArrayList<>();
@@ -98,11 +112,59 @@ public final class DisplayFactory {
 			slots.add(output(85, 0, OUTPUT, result));
 			return plainCard(holder.id(), category, Layout.SMITHING, 85 + OUTPUT, OUTPUT, slots, 0);
 		}
-		List<List<ItemStack>> inputs = recipe.getIngredients().stream()
+		return modded(holder.id(), category, recipe, result, data != null ? data : RecipeData.read(recipe, registries));
+	}
+
+	/**
+	 * Any other recipe, usually a modded machine's: on the machine's own art if there's a station layout for it that
+	 * the recipe fits, else the generic card. Either way with the outputs, chances, time and XP the recipe holds.
+	 */
+	private static Display modded(ResourceLocation id, Category category, Recipe<?> recipe, ItemStack result, RecipeData data) {
+		List<List<ItemStack>> inputs = new ArrayList<>(recipe.getIngredients().stream()
 				.filter(ingredient -> !ingredient.isEmpty())
 				.map(ingredient -> List.of(ingredient.getItems()))
-				.toList();
-		return generic(holder.id(), category, inputs, List.of(result));
+				.toList());
+		List<RecipeData.Output> outputs = data == null ? List.of() : data.outputs();
+		if (outputs.isEmpty()) outputs = List.of(new RecipeData.Output(result, 1.0F));
+		int time = data == null ? 0 : data.time();
+		float xp = data == null ? 0 : data.xp();
+		Station station = Station.of(category.typeId());
+		if (station != null && inputs.size() <= station.inputs().size()) {
+			return station(id, category, station, inputs, outputs, data, time, xp);
+		}
+		if (data != null) inputs.addAll(data.extraInputs());
+		return generic(id, category, inputs, outputs, time, xp);
+	}
+
+	/**
+	 * A recipe on its machine's art (see Station): ingredients and the first output where the layout puts them, and
+	 * the layout's extra slots filled from the recipe's fields (the Cooking Pot's bowl). Outputs the art has no place
+	 * for are still searched. Time and XP go in the strip along the bottom, left of the buttons.
+	 */
+	private static Display station(ResourceLocation id, Category category, Station station, List<List<ItemStack>> inputs,
+			List<RecipeData.Output> outputs, RecipeData data, int time, float xp) {
+		int inset = STATION_INSET;
+		List<DisplaySlot> slots = new ArrayList<>();
+		for (int i = 0; i < inputs.size(); i++) {
+			int[] at = station.inputs().get(i);
+			slots.add(new DisplaySlot(inset + at[0], inset + at[1], CARD_SLOT, false, List.copyOf(inputs.get(i))));
+		}
+		RecipeData.Output first = outputs.get(0);
+		slots.add(DisplaySlot.chanceOutput(inset + station.output()[0], inset + station.output()[1], CARD_SLOT, first.stack(), first.chance()));
+		for (RecipeData.Output other : outputs.subList(1, outputs.size())) {
+			slots.add(DisplaySlot.searchedOnly(true, List.of(other.stack().copy())));
+		}
+		if (data != null) {
+			for (Map.Entry<String, int[]> extra : station.slots().entrySet()) {
+				List<ItemStack> stacks = data.stacks(extra.getKey());
+				if (stacks.isEmpty()) continue;
+				slots.add(new DisplaySlot(inset + extra.getValue()[0], inset + extra.getValue()[1], CARD_SLOT, false, List.copyOf(stacks)));
+			}
+		}
+		int width = 2 * inset + station.width();
+		int height = inset + station.height() + PADDING + BUTTON + PADDING + Card.BOTTOM_BORDER;
+		return new Display(category, Layout.STATION, Card.PLAIN, width, height, width - Card.BORDER - 1 - BUTTON,
+				height - Card.BOTTOM_BORDER - 1 - BUTTON, id, List.copyOf(slots), false, time, xp, station);
 	}
 
 	/**
@@ -144,26 +206,43 @@ public final class DisplayFactory {
 	}
 
 	/**
-	 * Inputs in a grid up to 3 wide, then an arrow and the output, all centered vertically. Each input and the output
-	 * can list several stacks to cycle through; lists of the same length cycle in step.
+	 * Inputs in a grid up to 3 wide, then an arrow and the outputs, all centered vertically. One output gets the big
+	 * slot; several share a grid of normal ones, as many columns as fit, up to 3 rows (any more aren't drawn, but are
+	 * still searched). Each input can list several stacks to cycle through; lists of the same length cycle in step.
 	 */
-	private static Display generic(ResourceLocation id, Category category, List<List<ItemStack>> inputs, List<ItemStack> outputs) {
+	private static Display generic(ResourceLocation id, Category category, List<List<ItemStack>> inputs, List<RecipeData.Output> outputs,
+			int time, float xp) {
 		if (inputs.isEmpty() || outputs.isEmpty()) return null;
 		int columns = Math.min(inputs.size(), GENERIC_COLUMNS);
 		int rows = (inputs.size() + GENERIC_COLUMNS - 1) / GENERIC_COLUMNS;
 		if (rows > GENERIC_MAX_ROWS) return null;
 
+		// Arrow (24 wide) with a 4px gap each side; RecipeRenderer finds it from the outputs' position.
+		int outputX = columns * INPUT + 4 + 24 + 4;
+		boolean single = outputs.size() == 1;
+		int outputSize = single ? OUTPUT : INPUT;
+		int outputColumns = single ? 1 : Mth.clamp((MAX_CONTENT_WIDTH - outputX) / INPUT, 1, outputs.size());
+		int outputRows = Math.min(Mth.positiveCeilDiv(outputs.size(), outputColumns), GENERIC_MAX_ROWS);
+
 		int gridHeight = rows * INPUT;
-		int height = Math.max(gridHeight, OUTPUT);
+		int outputsHeight = outputRows * outputSize;
+		int height = Math.max(gridHeight, outputsHeight);
 		int gridY = (height - gridHeight) / 2;
+		int outputY = (height - outputsHeight) / 2;
 		List<DisplaySlot> slots = new ArrayList<>();
 		for (int i = 0; i < inputs.size(); i++) {
 			slots.add(new DisplaySlot(i % GENERIC_COLUMNS * INPUT, gridY + i / GENERIC_COLUMNS * INPUT, INPUT, false, List.copyOf(inputs.get(i))));
 		}
-		// Arrow (24 wide) with a 4px gap each side; RecipeRenderer finds it from the output's position.
-		int outputX = columns * INPUT + 4 + 24 + 4;
-		slots.add(new DisplaySlot(outputX, (height - OUTPUT) / 2, OUTPUT, true, outputs.stream().map(ItemStack::copy).toList()));
-		return plainCard(id, category, Layout.GENERIC, outputX + OUTPUT, height, slots, 0);
+		for (int i = 0; i < outputs.size(); i++) {
+			RecipeData.Output output = outputs.get(i);
+			if (i >= outputColumns * outputRows) {
+				slots.add(DisplaySlot.searchedOnly(true, List.of(output.stack().copy())));
+				continue;
+			}
+			slots.add(DisplaySlot.chanceOutput(outputX + i % outputColumns * outputSize, outputY + i / outputColumns * outputSize, outputSize,
+					output.stack(), output.chance()));
+		}
+		return plainCard(id, category, Layout.GENERIC, outputX + outputColumns * outputSize, height, slots, time, xp);
 	}
 
 	/**
@@ -222,23 +301,30 @@ public final class DisplayFactory {
 		return plainCard(id, Category.FUEL, Layout.FUEL, 72, OUTPUT, slots, burnTime);
 	}
 
-	/** A 128x78 art card. The buttons go in its bottom-right corner, inside the border. */
+	/** A 128x80 art card. The buttons go in its bottom-right corner, inside the border. */
 	private static Display artCard(ResourceLocation id, Category category, Layout layout, Card card, List<DisplaySlot> slots,
 			boolean shapeless, int cookTime, float xp) {
 		int width = Card.WIDTH;
-		int height = Card.TEXTURE_HEIGHT;
+		int height = Card.HEIGHT;
 		return new Display(category, layout, card, width, height, width - Card.BORDER - 1 - BUTTON, height - Card.BOTTOM_BORDER - 1 - BUTTON,
-				id, List.copyOf(slots), shapeless, cookTime, xp);
+				id, List.copyOf(slots), shapeless, cookTime, xp, null);
 	}
 
 	/**
 	 * Puts contents laid out from (0, 0) on a plain card sized to fit them. The star goes right of the contents when
-	 * there's room on the page, otherwise below them in the bottom-right corner.
+	 * there's room on the page, otherwise below them in the bottom-right corner. A modded recipe's time and XP go
+	 * along the bottom, left of the star, so those always put it below.
 	 */
 	private static Display plainCard(ResourceLocation id, Category category, Layout layout, int contentWidth, int contentHeight,
 			List<DisplaySlot> content, int cookTime) {
+		return plainCard(id, category, layout, contentWidth, contentHeight, content, cookTime, 0);
+	}
+
+	private static Display plainCard(ResourceLocation id, Category category, Layout layout, int contentWidth, int contentHeight,
+			List<DisplaySlot> content, int cookTime, float xp) {
 		int inset = Card.BORDER + PADDING;
-		boolean beside = inset + contentWidth + PADDING + BUTTON + inset <= Card.WIDTH;
+		boolean info = layout == Layout.GENERIC && (cookTime > 0 || xp > 0);
+		boolean beside = !info && inset + contentWidth + PADDING + BUTTON + inset <= Card.WIDTH;
 		int width = beside ? inset + contentWidth + PADDING + BUTTON + inset : inset + contentWidth + inset;
 		int height = beside
 				? inset + contentHeight + PADDING + Card.BOTTOM_BORDER
@@ -246,9 +332,10 @@ public final class DisplayFactory {
 		int buttonX = beside ? inset + contentWidth + PADDING : width - Card.BORDER - 1 - BUTTON;
 		int buttonY = beside ? inset + (contentHeight - BUTTON) / 2 : height - Card.BOTTOM_BORDER - 1 - BUTTON;
 		List<DisplaySlot> slots = content.stream()
-				.map(slot -> new DisplaySlot(slot.x() + inset, slot.y() + inset, slot.size(), slot.output(), slot.stacks(), slot.shown(), slot.searched()))
+				.map(slot -> new DisplaySlot(slot.x() + inset, slot.y() + inset, slot.size(), slot.output(), slot.stacks(), slot.shown(),
+						slot.searched(), slot.chance()))
 				.toList();
-		return new Display(category, layout, Card.PLAIN, width, height, buttonX, buttonY, id, slots, false, cookTime, 0);
+		return new Display(category, layout, Card.PLAIN, width, height, buttonX, buttonY, id, slots, false, cookTime, xp, null);
 	}
 
 	private static void addInput(List<DisplaySlot> slots, int x, int y, int size, Ingredient ingredient) {

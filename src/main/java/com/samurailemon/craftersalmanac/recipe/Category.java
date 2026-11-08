@@ -76,6 +76,11 @@ public final class Category implements Comparable<Category> {
 		return title;
 	}
 
+	/** The recipe type's ID, or null for virtual tabs. */
+	public ResourceLocation typeId() {
+		return type == null ? null : BuiltInRegistries.RECIPE_TYPE.getKey(type);
+	}
+
 	/** The tab for a recipe's type, creating one the first time a modded type is seen. */
 	public static Category of(Recipe<?> recipe, ItemStack result) {
 		RecipeType<?> type = recipe.getType();
@@ -86,10 +91,30 @@ public final class Category implements Comparable<Category> {
 	}
 
 	private static Category modded(RecipeType<?> type, Recipe<?> recipe, ItemStack result) {
-		// Mods usually set the toast symbol to their machine; the default is a crafting table, which would be misleading.
-		ItemStack icon = recipe.getToastSymbol();
-		if (icon.isEmpty() || icon.is(Items.CRAFTING_TABLE)) icon = result.copyWithCount(1);
+		ItemStack icon = moddedIcon(type, recipe, result);
 		return new Category(type, icon, moddedTitle(type, icon), Integer.MAX_VALUE);
+	}
+
+	/**
+	 * The machine: a station layout's icon, else the recipe's toast symbol (mods usually set it to their machine; the
+	 * default is a crafting table, which would be misleading), else an item named after the type ("pulverizer_block"
+	 * for "pulverizer"), else what the recipe makes.
+	 */
+	private static ItemStack moddedIcon(RecipeType<?> type, Recipe<?> recipe, ItemStack result) {
+		ResourceLocation key = BuiltInRegistries.RECIPE_TYPE.getKey(type);
+		Station station = Station.of(key);
+		if (station != null && station.icon() != null && BuiltInRegistries.ITEM.containsKey(station.icon())) {
+			return new ItemStack(BuiltInRegistries.ITEM.get(station.icon()));
+		}
+		ItemStack toast = recipe.getToastSymbol();
+		if (!toast.isEmpty() && !toast.is(Items.CRAFTING_TABLE)) return toast;
+		if (key != null) {
+			for (String suffix : List.of("", "_block")) {
+				ResourceLocation machine = key.withSuffix(suffix);
+				if (BuiltInRegistries.ITEM.containsKey(machine)) return new ItemStack(BuiltInRegistries.ITEM.get(machine));
+			}
+		}
+		return result.copyWithCount(1);
 	}
 
 	/** A translation the mod provides if any, else the machine's name, else "Crushing (Create)" from the type ID. */

@@ -8,10 +8,10 @@ import java.util.List;
 /**
  * A recipe flattened into slots the panel can draw, independent of the recipe class it came from. It's drawn on a
  * card; width and height are the card's, and (buttonX, buttonY) is where the favorite star goes, with the fill and
- * calculator buttons to its left.
+ * calculator buttons to its left. {@code station} is the machine art for {@link Layout#STATION}, else null.
  */
 public record Display(Category category, Layout layout, Card card, int width, int height, int buttonX, int buttonY,
-		ResourceLocation id, List<DisplaySlot> slots, boolean shapeless, int cookTime, float xp) {
+		ResourceLocation id, List<DisplaySlot> slots, boolean shapeless, int cookTime, float xp, Station station) {
 	public boolean produces(ItemStack stack) {
 		for (DisplaySlot slot : slots) {
 			if (slot.searched() && slot.output() && slot.contains(stack)) return true;

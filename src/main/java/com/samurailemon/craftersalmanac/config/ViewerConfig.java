@@ -14,7 +14,9 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Settings saved to config/craftersalmanac.json. */
 public final class ViewerConfig {
@@ -32,8 +34,10 @@ public final class ViewerConfig {
 	public boolean panelOpen = true;
 	/** The item list's filter button: only list items you can make from what you're carrying. */
 	public boolean craftableOnly = false;
-	/** Favorite recipe IDs, oldest first. */
-	public List<String> favorites = new ArrayList<>();
+	/** Clicking items in the list gives them (for players allowed to use commands). */
+	public boolean cheatMode = false;
+	/** Favorite recipe IDs, oldest first, for each world (see Favorites.worldKey). */
+	public Map<String, List<String>> worldFavorites = new HashMap<>();
 	/** How the inventory sort button orders items; Off hides the button. */
 	public InventorySorter.Mode sortMode = InventorySorter.Mode.CREATIVE;
 	/** The quick stack button in chests and other storage. */
@@ -42,6 +46,8 @@ public final class ViewerConfig {
 	public boolean tooltipDetails = true;
 	/** An item's recipes beside its tooltip while Shift is held. */
 	public boolean recipePreview = true;
+	/** Frame cards with their station's own screen (see CardFrames); off uses the recipe book's panel for all. */
+	public boolean matchStationScreens = true;
 	/** Class names of screens the viewer is switched off on. */
 	public List<String> disabledScreens = new ArrayList<>();
 
@@ -55,7 +61,7 @@ public final class ViewerConfig {
 			try (Reader reader = Files.newBufferedReader(FILE)) {
 				ViewerConfig config = GSON.fromJson(reader, ViewerConfig.class);
 				if (config != null) {
-					if (config.favorites == null) config.favorites = new ArrayList<>();
+					if (config.worldFavorites == null) config.worldFavorites = new HashMap<>();
 					if (config.disabledScreens == null) config.disabledScreens = new ArrayList<>();
 					// Missing, or a mode name this version doesn't know.
 					if (config.sortMode == null) config.sortMode = InventorySorter.Mode.CREATIVE;

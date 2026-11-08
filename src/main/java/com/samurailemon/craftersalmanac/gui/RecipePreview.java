@@ -12,7 +12,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
@@ -20,14 +19,16 @@ import java.util.List;
 
 /**
  * While Shift is held over an item, draws its recipe card beside the tooltip, so a recipe can be checked without
- * opening the almanac. The card goes on the side of the mouse away from the tooltip. Items with several recipes
- * cycle through them, starting from the first each time a new item is hovered, with dots under the card showing
- * how many there are and which one is shown.
+ * opening the almanac. The card goes on the side of the mouse away from the tooltip, or past the tooltip, or above
+ * or below it, wherever it fits without covering the tooltip. Items with several recipes cycle through them,
+ * starting from the first each time a new item is hovered, with dots under the card showing how many there are and
+ * which one is shown.
  */
 public final class RecipePreview {
-	/** Vanilla puts the tooltip this far right of the mouse, and its border and padding add this to the text width. */
+	/** Vanilla puts the tooltip this far right of the mouse. */
 	private static final int TOOLTIP_OFFSET = 12;
-	private static final int TOOLTIP_PADDING = 8;
+	/** A tooltip's background and border reach this far around its text. */
+	private static final int TOOLTIP_BORDER = 4;
 	private static final int GAP = 4;
 	private static final int EDGE = 2;
 	/** In front of the tooltip, which vanilla draws at 400. */
@@ -49,34 +50,45 @@ public final class RecipePreview {
 
 	/**
 	 * The item being previewed, worked out once when hovering it starts (Shift down over a new item) rather than
-	 * every frame: when that was, so its recipes cycle from the first, its recipes, and how wide its tooltip is.
+	 * every frame: when that was, so its recipes cycle from the first, and its recipes.
 	 */
 	private static ItemStack shown = ItemStack.EMPTY;
 	private static long since;
 	private static List<Display> recipes = List.of();
-	private static int tooltipWidth;
+
+	/** Where this frame's tooltip was drawn, so the card can keep clear of it, whichever way the tooltip went. */
+	private static boolean tooltipSeen;
+	private static int tooltipLeft;
+	private static int tooltipTop;
+	private static int tooltipRight;
+	private static int tooltipBottom;
 
 	private RecipePreview() {
 	}
 
+	/** Called by GuiGraphicsMixin for every tooltip, with its text area in real screen coordinates. */
+	public static void tooltipDrawn(int x, int y, int width, int height) {
+		tooltipSeen = true;
+		tooltipLeft = x - TOOLTIP_BORDER;
+		tooltipTop = y - TOOLTIP_BORDER;
+		tooltipRight = x + width + TOOLTIP_BORDER;
+		tooltipBottom = y + height + TOOLTIP_BORDER;
+	}
+
 	/** Called after the screen is drawn, with the real mouse position. */
 	public static void render(GuiGraphics g, ItemStack stack, int mouseX, int mouseY) {
+		boolean hasTooltip = tooltipSeen;
+		tooltipSeen = false;
 		if (!ViewerConfig.get().recipePreview || !Screen.hasShiftDown() || stack.isEmpty()) {
 			shown = ItemStack.EMPTY;
 			return;
 		}
-		Minecraft minecraft = Minecraft.getInstance();
-		Font font = minecraft.font;
+		Font font = Minecraft.getInstance().font;
 		long now = Util.getMillis();
 		if (!ItemStack.isSameItemSameComponents(stack, shown)) {
 			shown = stack.copy();
 			since = now;
 			recipes = recipesFor(stack);
-			tooltipWidth = 0;
-			for (Component line : Screen.getTooltipFromItem(minecraft, stack)) {
-				tooltipWidth = Math.max(tooltipWidth, font.width(line));
-			}
-			tooltipWidth += TOOLTIP_PADDING;
 		}
 		if (recipes.isEmpty()) return;
 		int index = (int) ((now - since) / CYCLE_MILLIS % recipes.size());
@@ -86,17 +98,35 @@ public final class RecipePreview {
 		int height = cardHeight + (recipes.size() > 1 ? FOOTER : 0);
 
 		int screenWidth = g.guiWidth();
-		// Vanilla flips the tooltip to the left of the mouse when it would run off the right edge.
-		boolean tooltipOnRight = mouseX + TOOLTIP_OFFSET + tooltipWidth <= screenWidth;
+		int screenHeight = g.guiHeight();
+		// Without a tooltip, keep to where vanilla's would usually go: just right of the mouse.
+		int left = hasTooltip ? tooltipLeft : mouseX + TOOLTIP_OFFSET;
+		int right = hasTooltip ? tooltipRight : left;
+		int top = hasTooltip ? tooltipTop : mouseY - TOOLTIP_OFFSET;
+		int bottom = hasTooltip ? tooltipBottom : top;
+		boolean tooltipOnRight = left + right >= 2 * mouseX;
+		// First choice: the other side of the mouse. Next: past the far side of the tooltip.
+		int away = tooltipOnRight ? Math.min(mouseX, left) - GAP - width : Math.max(mouseX + TOOLTIP_OFFSET, right + GAP);
+		int beyond = tooltipOnRight ? right + GAP : left - GAP - width;
 		int x;
-		if (tooltipOnRight) {
-			x = mouseX - GAP - width;
-			if (x < EDGE) x = mouseX + TOOLTIP_OFFSET + tooltipWidth + GAP;
+		int y = mouseY - TOOLTIP_OFFSET;
+		if (fits(away, width, screenWidth)) {
+			x = away;
+		} else if (fits(beyond, width, screenWidth)) {
+			x = beyond;
 		} else {
-			x = mouseX + TOOLTIP_OFFSET;
+			// A tooltip too wide to go beside: go under it, or over it.
+			x = left;
+			if (bottom + GAP + height <= screenHeight - EDGE) {
+				y = bottom + GAP;
+			} else if (top - GAP - height >= EDGE) {
+				y = top - GAP - height;
+			} else {
+				x = away;
+			}
 		}
 		x = Mth.clamp(x, EDGE, Math.max(EDGE, screenWidth - width - EDGE));
-		int y = Mth.clamp(mouseY - TOOLTIP_OFFSET, EDGE, Math.max(EDGE, g.guiHeight() - height - EDGE));
+		y = Mth.clamp(y, EDGE, Math.max(EDGE, screenHeight - height - EDGE));
 
 		g.pose().pushPose();
 		g.pose().translate(x, y, Z);
@@ -105,6 +135,10 @@ public final class RecipePreview {
 		RecipeRenderer.render(g, font, display, 0, 0, false);
 		header(g, font, display);
 		g.pose().popPose();
+	}
+
+	private static boolean fits(int x, int width, int screenWidth) {
+		return x >= EDGE && x + width <= screenWidth - EDGE;
 	}
 
 	/** A potion shows just the brewing that makes it, not every potion a recipe can take. */

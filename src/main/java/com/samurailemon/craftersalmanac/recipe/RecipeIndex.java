@@ -44,6 +44,11 @@ public final class RecipeIndex {
 		return found;
 	}
 
+	/** Rebuilds the list next time it's asked for, e.g. after station layouts are reloaded. */
+	public static void invalidate() {
+		cachedRecipes = null;
+	}
+
 	/** Same list instance until the recipes change, so callers can cache against it. */
 	public static List<Display> all() {
 		ClientLevel level = Minecraft.getInstance().level;

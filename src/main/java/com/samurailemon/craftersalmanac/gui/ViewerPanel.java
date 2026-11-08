@@ -71,6 +71,11 @@ public class ViewerPanel extends AbstractWidget {
 	private static final ResourceLocation FILTER_DISABLED = ResourceLocation.withDefaultNamespace("recipe_book/filter_disabled");
 	private static final ResourceLocation FILTER_ENABLED_HIGHLIGHTED = ResourceLocation.withDefaultNamespace("recipe_book/filter_enabled_highlighted");
 	private static final ResourceLocation FILTER_DISABLED_HIGHLIGHTED = ResourceLocation.withDefaultNamespace("recipe_book/filter_disabled_highlighted");
+	/** Cheat mode's switch: the furnace recipe book's version of the filter button, so it differs from the craftable filter. */
+	private static final ResourceLocation CHEATS_ENABLED = ResourceLocation.withDefaultNamespace("recipe_book/furnace_filter_enabled");
+	private static final ResourceLocation CHEATS_DISABLED = ResourceLocation.withDefaultNamespace("recipe_book/furnace_filter_disabled");
+	private static final ResourceLocation CHEATS_ENABLED_HIGHLIGHTED = ResourceLocation.withDefaultNamespace("recipe_book/furnace_filter_enabled_highlighted");
+	private static final ResourceLocation CHEATS_DISABLED_HIGHLIGHTED = ResourceLocation.withDefaultNamespace("recipe_book/furnace_filter_disabled_highlighted");
 	private static final ResourceLocation BUTTON = ResourceLocation.withDefaultNamespace("widget/button");
 	private static final ResourceLocation BUTTON_HIGHLIGHTED = ResourceLocation.withDefaultNamespace("widget/button_highlighted");
 	private static final ResourceLocation BUTTON_DISABLED = ResourceLocation.withDefaultNamespace("widget/button_disabled");
@@ -206,6 +211,7 @@ public class ViewerPanel extends AbstractWidget {
 		} else if (view == null) {
 			renderFilterButton(g, mouseX, mouseY);
 			renderItemGrid(g);
+			if (Cheats.allowed()) renderCheatsButton(g, mouseX, mouseY);
 		} else {
 			renderRecipes(g, view, mouseX, mouseY);
 		}
@@ -273,6 +279,20 @@ public class ViewerPanel extends AbstractWidget {
 		hits.add(hit);
 	}
 
+	/** Cheat mode's switch, in the bottom-right corner of the item list beside the page arrows. */
+	private void renderCheatsButton(GuiGraphics g, int mouseX, int mouseY) {
+		boolean on = ViewerConfig.get().cheatMode;
+		Hit hit = Hit.button(bookX + 111, bookY + 138, 26, 16,
+				Component.translatable(on ? "craftersalmanac.cheats.on" : "craftersalmanac.cheats.off"),
+				List.of(Component.translatable("craftersalmanac.cheats.hint").withStyle(ChatFormatting.GRAY)), Cheats::toggle);
+		hits.add(hit);
+		boolean hovered = hit.contains(mouseX, mouseY);
+		ResourceLocation sprite = on
+				? hovered ? CHEATS_ENABLED_HIGHLIGHTED : CHEATS_ENABLED
+				: hovered ? CHEATS_DISABLED_HIGHLIGHTED : CHEATS_DISABLED;
+		g.blitSprite(sprite, hit.x(), hit.y(), hit.w(), hit.h());
+	}
+
 	private List<ItemStack> browseItems() {
 		List<ItemStack> searchResult = ItemList.filtered(ViewerState.search);
 		Set<Item> craftable = ViewerConfig.get().craftableOnly ? Craftable.items(screen.getMenu()) : null;
@@ -293,6 +313,7 @@ public class ViewerPanel extends AbstractWidget {
 			return;
 		}
 
+		List<Component> extra = Cheats.active() ? List.of(Component.translatable("craftersalmanac.cheats.give").withStyle(ChatFormatting.GRAY)) : List.of();
 		int start = ViewerState.browsePage * COLS * ROWS;
 		for (int i = 0; i < COLS * ROWS && start + i < items.size(); i++) {
 			ItemStack stack = items.get(start + i);
@@ -300,7 +321,7 @@ public class ViewerPanel extends AbstractWidget {
 			int y = bookY + GRID_Y + CELL * (i / COLS);
 			g.blitSprite(SLOT, x, y, CELL, CELL);
 			g.renderItem(stack, x + 4, y + 4);
-			hits.add(Hit.item(x, y, CELL, stack, List.of()));
+			hits.add(Hit.item(x, y, CELL, stack, extra));
 		}
 	}
 
@@ -328,7 +349,12 @@ public class ViewerPanel extends AbstractWidget {
 					: List.of();
 			for (DisplaySlot slot : display.slots()) {
 				if (!slot.shown()) continue;
-				hits.add(Hit.item(x + slot.x(), y + slot.y(), slot.size(), slot.current(), slot.output() ? idLine : List.of()));
+				List<Component> extra = slot.output() ? idLine : List.of();
+				if (slot.chance() < 1.0F) {
+					extra = new ArrayList<>(extra);
+					extra.addFirst(Component.translatable("craftersalmanac.chance", RecipeRenderer.percent(slot.chance())).withStyle(ChatFormatting.GOLD));
+				}
+				hits.add(Hit.item(x + slot.x(), y + slot.y(), slot.size(), slot.current(), extra));
 			}
 			if (display.shapeless()) {
 				// Over the arrow drawn in the crafting card.
@@ -358,7 +384,7 @@ public class ViewerPanel extends AbstractWidget {
 	 */
 	private void renderFavoriteRow(GuiGraphics g, Display display, int x, int y, int mouseX, int mouseY) {
 		ItemStack result = favoriteResult(display);
-		RecipeRenderer.plainCard(g, x, y, CONTENT_WIDTH, FAVORITE_ROW);
+		CardFrames.draw(g, display, x, y, CONTENT_WIDTH, FAVORITE_ROW);
 		hits.add(Hit.button(x, y, CONTENT_WIDTH, FAVORITE_ROW, result.getHoverName(),
 				List.of(display.category().title().copy().withStyle(ChatFormatting.GRAY),
 						Component.translatable("craftersalmanac.favorite.open").withStyle(ChatFormatting.DARK_GRAY)),
@@ -416,10 +442,17 @@ public class ViewerPanel extends AbstractWidget {
 		g.pose().popPose();
 	}
 
-	/** What a recipe makes; recipes without an output (fuel) show their first item instead. */
+	/**
+	 * What a recipe makes. Brewing's result isn't drawn in a slot of its own (its bottles swap between the starting
+	 * potion and the result), so it's taken from the searched result. Recipes without an output (fuel) show their
+	 * first item instead.
+	 */
 	private static ItemStack favoriteResult(Display display) {
 		for (DisplaySlot slot : display.slots()) {
 			if (slot.output() && slot.shown()) return slot.current();
+		}
+		for (DisplaySlot slot : display.slots()) {
+			if (slot.output()) return slot.current();
 		}
 		for (DisplaySlot slot : display.slots()) {
 			if (slot.shown()) return slot.current();
@@ -677,6 +710,12 @@ public class ViewerPanel extends AbstractWidget {
 		search.setFocused(false);
 
 		Hit hit = hitAt(mouseX, mouseY);
+		boolean browsing = ViewerState.view == null && ViewerState.materials == null;
+		if (hit != null && !hit.stack().isEmpty() && (button == 0 || button == 1) && browsing && Cheats.active()) {
+			Cheats.give(hit.stack(), button == 0 ? hit.stack().getMaxStackSize() : 1);
+			playClick();
+			return swallow();
+		}
 		if (hit != null && !hit.stack().isEmpty() && (button == 0 || button == 1)) {
 			if (ViewerState.show(hit.stack(), button == 1)) playClick();
 			return swallow();

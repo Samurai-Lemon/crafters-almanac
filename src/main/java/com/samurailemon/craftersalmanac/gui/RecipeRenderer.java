@@ -3,6 +3,8 @@ package com.samurailemon.craftersalmanac.gui;
 import com.samurailemon.craftersalmanac.recipe.Card;
 import com.samurailemon.craftersalmanac.recipe.Display;
 import com.samurailemon.craftersalmanac.recipe.DisplaySlot;
+import com.samurailemon.craftersalmanac.recipe.Layout;
+import com.samurailemon.craftersalmanac.recipe.Station;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -10,6 +12,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.decoration.ArmorStand;
@@ -25,26 +28,28 @@ import java.util.Locale;
 /**
  * Draws one recipe on its card (see {@link Card}). The art cards have their slots, arrows, flame and tubes drawn in.
  * The animated parts are "lit" copies of the cards' own arrow, flame and bubble shapes (white, or orange for the
- * flame), revealed a bit at a time, so they line up exactly with the art. Plain cards take their border, slots and
- * arrow from the furnace card so they match it.
+ * flame), revealed a bit at a time, so they line up exactly with the art. Plain cards are the furnace card's frame as
+ * a nine-slice sprite, and take their slots and arrow from the furnace card, so they match it.
  */
 public final class RecipeRenderer {
-	/** Lit copies of the card art: flame 14x14 at (56, 36), arrow 24x16 at (79, 34), brew arrow 9x28 at (97, 16), bubbles 12x29 at (63, 14). */
-	private static final ResourceLocation FLAME = sprite("card_furnace_flame");
-	private static final ResourceLocation ARROW_FILL = sprite("card_furnace_arrow");
-	private static final ResourceLocation BREW_ARROW = sprite("card_brewing_arrow");
-	private static final ResourceLocation BUBBLES = sprite("card_brewing_bubbles");
+	/** The furnace's and brewing stand's own progress sprites, at the same positions as on their screens. */
+	private static final ResourceLocation FLAME = ResourceLocation.withDefaultNamespace("container/furnace/lit_progress");
+	private static final ResourceLocation ARROW_FILL = ResourceLocation.withDefaultNamespace("container/furnace/burn_progress");
+	private static final ResourceLocation BREW_ARROW = ResourceLocation.withDefaultNamespace("container/brewing_stand/brew_progress");
+	private static final ResourceLocation BUBBLES = ResourceLocation.withDefaultNamespace("container/brewing_stand/bubbles");
+	private static final ResourceLocation BLAZE_FUEL = ResourceLocation.withDefaultNamespace("container/brewing_stand/fuel_length");
 	/** Same bubble animation frames as BrewingStandScreen. */
 	private static final int[] BUBBLE_LENGTHS = {29, 24, 20, 16, 11, 6, 0};
-	/** Plain cards and the materials grid copy these parts of the furnace card: input slot, result slot, arrow. */
-	private static final ResourceLocation FURNACE_CARD = sprite(Card.FURNACE.sprite);
-	/** An empty strip of the furnace card's middle, tiled to make plain cards any size. */
-	private static final int EMPTY_X = 140;
-	private static final int EMPTY_WIDTH = 30;
-	private static final int EMPTY_Y = 6;
-	private static final int EMPTY_HEIGHT = 9;
+	private static final ResourceLocation SLOT = ResourceLocation.withDefaultNamespace("container/slot");
+	/** Plain cards take their result slot and arrow from the furnace screen. */
+	private static final ResourceLocation FURNACE_SCREEN = Card.FURNACE.texture;
 	/** Text on a card: vanilla's container label colour. */
 	static final int CARD_TEXT = 0x404040;
+	/** The "50%" on outputs a recipe only sometimes gives: small, in vanilla's gold, in front of the item. */
+	private static final float CHANCE_SCALE = 0.75F;
+	private static final int CHANCE_COLOR = 0xFFFFAA00;
+	/** Text drawn over items has to be in front of them (items are drawn up to 150 deep plus their own depth). */
+	private static final float OVER_ITEMS = 200.0F;
 	private static final DecimalFormat NUMBER = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
 	/** Trim cards' armor stand: the smithing table's tilt and starting direction, a bit smaller, one turn every 8s. */
 	private static final Quaternionf STAND_ANGLE = new Quaternionf().rotationXYZ(0.43633232F, 0.0F, (float) Math.PI);
@@ -82,13 +87,40 @@ public final class RecipeRenderer {
 				boolean brewed = millis / 1000 % 2 == 1;
 				int progress = brewed ? 28 : (int) (millis % 1000 * 28 / 1000);
 				g.blitSprite(BREW_ARROW, 9, 28, 0, 0, x + card.x(97), y + 16, 9, progress);
+				g.blitSprite(BLAZE_FUEL, x + card.x(60), y + 44, 18, 4);
 				int bubbles = BUBBLE_LENGTHS[(int) (millis / 100) % BUBBLE_LENGTHS.length];
 				if (bubbles > 0) g.blitSprite(BUBBLES, 12, 29, 0, 29 - bubbles, x + card.x(63), y + 14 + 29 - bubbles, 12, bubbles);
 			}
 			case SINGLE, SMITHING, GENERIC -> {
+				// Left of the outputs, centered on them (one big slot, or a grid of several).
+				int left = Integer.MAX_VALUE;
+				int top = Integer.MAX_VALUE;
+				int bottom = Integer.MIN_VALUE;
 				for (DisplaySlot slot : display.slots()) {
-					if (slot.output() && slot.shown()) arrow(g, x + slot.x() - 28, y + slot.y() + 5);
+					if (!slot.output() || !slot.shown()) continue;
+					left = Math.min(left, slot.x());
+					top = Math.min(top, slot.y());
+					bottom = Math.max(bottom, slot.y() + slot.size());
 				}
+				if (left != Integer.MAX_VALUE) {
+					int arrowX = x + left - 28;
+					int arrowY = y + (top + bottom) / 2 - 8;
+					arrow(g, arrowX, arrowY);
+					// A modded machine that says how long it takes fills its arrow over that time, like the furnace.
+					if (display.layout() == Layout.GENERIC && display.cookTime() > 0) {
+						long total = display.cookTime() * 50L;
+						int filled = (int) (Util.getMillis() % total * 24 / total);
+						g.blitSprite(ARROW_FILL, 24, 16, 0, 0, arrowX, arrowY, filled, 16);
+					}
+				}
+				info(g, font, display, x, y);
+			}
+			case STATION -> {
+				Station station = display.station();
+				int inset = Card.BORDER + 1;
+				g.blit(station.texture(), x + inset, y + inset, station.u(), station.v(), station.width(), station.height(),
+						station.textureWidth(), station.textureHeight());
+				info(g, font, display, x, y);
 			}
 			case TRIM -> {
 				for (DisplaySlot slot : display.slots()) {
@@ -112,61 +144,51 @@ public final class RecipeRenderer {
 			if (!slot.shown()) continue;
 			int sx = x + slot.x();
 			int sy = y + slot.y();
-			// The art cards have their slots drawn in.
-			if (card == Card.PLAIN) slot(g, sx, sy, slot.size());
+			// The art cards and machine art have their slots drawn in.
+			if (card == Card.PLAIN && display.layout() != Layout.STATION) slot(g, sx, sy, slot.size());
 			ItemStack stack = slot.current();
 			int inset = (slot.size() - 16) / 2;
 			g.renderItem(stack, sx + inset, sy + inset);
 			g.renderItemDecorations(font, stack, sx + inset, sy + inset);
+			if (slot.chance() < 1.0F) chance(g, font, slot.chance(), sx + inset, sy + inset);
 		}
 	}
 
-	/**
-	 * Art cards: the left border, the kept middle and the right border, each full height. Plain cards: see
-	 * {@link #plainCard}.
-	 */
+	/** "50%" in the item's top-left corner. */
+	private static void chance(GuiGraphics g, Font font, float chance, int x, int y) {
+		g.pose().pushPose();
+		g.pose().translate(x, y, OVER_ITEMS);
+		g.pose().scale(CHANCE_SCALE, CHANCE_SCALE, 1.0F);
+		g.drawString(font, percent(chance), 0, 0, CHANCE_COLOR, true);
+		g.pose().popPose();
+	}
+
+	/** A chance as a whole percentage: 0.5 is "50%". */
+	public static String percent(float chance) {
+		return Math.round(chance * 100) + "%";
+	}
+
+	/** A modded recipe's time and XP ("5s  1 XP"), along the bottom of the card left of the buttons. */
+	private static void info(GuiGraphics g, Font font, Display display, int x, int y) {
+		if (display.cookTime() <= 0 && display.xp() <= 0) return;
+		MutableComponent text = Component.empty();
+		if (display.cookTime() > 0) {
+			text.append(Component.translatable("craftersalmanac.cook_time", NUMBER.format(display.cookTime() / 20.0)));
+		}
+		if (display.xp() > 0) {
+			if (display.cookTime() > 0) text.append("  ");
+			text.append(Component.translatable("craftersalmanac.xp", NUMBER.format(display.xp())));
+		}
+		g.drawString(font, text, x + Card.BORDER + 2, y + display.buttonY() + 2, CARD_TEXT, false);
+	}
+
+	/** The frame (see CardFrames), and for art cards the middle of the station's screen inside it. */
 	private static void card(GuiGraphics g, Display display, int x, int y) {
+		CardFrames.draw(g, display, x, y, display.width(), display.height());
 		Card card = display.card();
-		ResourceLocation sprite = sprite(card.sprite);
+		if (card == Card.PLAIN) return;
 		int b = Card.BORDER;
-		if (card != Card.PLAIN) {
-			blit(g, sprite, 0, 0, x, y, b, Card.TEXTURE_HEIGHT);
-			blit(g, sprite, card.keepX, 0, x + b, y, Card.KEPT, Card.TEXTURE_HEIGHT);
-			blit(g, sprite, Card.TEXTURE_WIDTH - b, 0, x + b + Card.KEPT, y, b, Card.TEXTURE_HEIGHT);
-			return;
-		}
-		plainCard(g, x, y, display.width(), display.height());
-	}
-
-	/** A plain card of any size: the border's corners and edges with the empty middle strip tiled to fill it. */
-	public static void plainCard(GuiGraphics g, int x, int y, int width, int height) {
-		ResourceLocation sprite = sprite(Card.PLAIN.sprite);
-		int b = Card.BORDER;
-		int bottom = Card.BOTTOM_BORDER;
-		cardRow(g, sprite, x, y, width, 0, b);
-		for (int row = b; row < height - bottom; row += EMPTY_HEIGHT) {
-			cardRow(g, sprite, x, y + row, width, EMPTY_Y, Math.min(EMPTY_HEIGHT, height - bottom - row));
-		}
-		cardRow(g, sprite, x, y + height - bottom, width, Card.TEXTURE_HEIGHT - bottom, bottom);
-	}
-
-	/** One band of a plain card: left edge, tiled middle, right edge, from row {@code v} of the card image. */
-	private static void cardRow(GuiGraphics g, ResourceLocation sprite, int x, int y, int width, int v, int rows) {
-		int b = Card.BORDER;
-		blit(g, sprite, 0, v, x, y, b, rows);
-		for (int column = b; column < width - b; column += EMPTY_WIDTH) {
-			blit(g, sprite, EMPTY_X, v, x + column, y, Math.min(EMPTY_WIDTH, width - b - column), rows);
-		}
-		blit(g, sprite, Card.TEXTURE_WIDTH - b, v, x + width - b, y, b, rows);
-	}
-
-	/** Draws part of a card image at its real size. */
-	private static void blit(GuiGraphics g, ResourceLocation sprite, int u, int v, int x, int y, int width, int height) {
-		g.blitSprite(sprite, Card.TEXTURE_WIDTH, Card.TEXTURE_HEIGHT, u, v, x, y, width, height);
-	}
-
-	private static ResourceLocation sprite(String name) {
-		return ResourceLocation.fromNamespaceAndPath("craftersalmanac", name);
+		g.blit(CardFrames.artTexture(display), x + b, y + b, card.keepX, b, Card.KEPT, display.height() - 2 * b);
 	}
 
 	/**
@@ -191,16 +213,19 @@ public final class RecipeRenderer {
 		InventoryScreen.renderEntityInInventory(g, x, y, STAND_SCALE, new Vector3f(), STAND_ANGLE, null, stand);
 	}
 
-	/** The furnace card's arrow (22x16), centered in the 24-wide space layouts leave for an arrow. */
+	/** The furnace screen's arrow (24x16), in the space layouts leave for an arrow. */
 	private static void arrow(GuiGraphics g, int x, int y) {
-		blit(g, FURNACE_CARD, 80, 34, x + 1, y, 22, 16);
+		g.blit(FURNACE_SCREEN, x, y, 79, 34, 24, 16);
 	}
 
-	/** A slot in the furnace card's style, centered in a slot area: its result slot for 26 and up, else its input slot. */
+	/** A slot centered in a slot area: the furnace screen's result slot for 26 and up, else vanilla's slot sprite. */
 	static void slot(GuiGraphics g, int x, int y, int size) {
-		boolean large = size >= 26;
-		int art = large ? 24 : 16;
-		int inset = (size - art) / 2;
-		blit(g, FURNACE_CARD, large ? 112 : 56, large ? 31 : 17, x + inset, y + inset, art, art);
+		if (size >= 26) {
+			int inset = (size - 26) / 2;
+			g.blit(FURNACE_SCREEN, x + inset, y + inset, 111, 30, 26, 26);
+		} else {
+			int inset = (size - 18) / 2;
+			g.blitSprite(SLOT, x + inset, y + inset, 18, 18);
+		}
 	}
 }

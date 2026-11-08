@@ -4,6 +4,7 @@ import com.samurailemon.craftersalmanac.config.ViewerConfig;
 import com.samurailemon.craftersalmanac.recipe.Display;
 import com.samurailemon.craftersalmanac.recipe.RecipeIndex;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.recipebook.RecipeUpdateListener;
 import net.minecraft.world.item.Item;
@@ -28,6 +29,11 @@ public final class ViewerState {
 	/** The materials calculator, shown on top of the current view. Back closes it. */
 	public static Materials materials;
 	private static final Deque<RecipeView> history = new ArrayDeque<>();
+	/**
+	 * On screens that aren't for crafting (chests and other storage), the almanac stays closed until R or U (or the
+	 * toggle key) opens it, and closes again with the screen. This is whether it's open on the current one.
+	 */
+	private static boolean summoned;
 
 	private ViewerState() {
 	}
@@ -89,7 +95,13 @@ public final class ViewerState {
 
 	/** The panel is open and not pushed aside by the vanilla recipe book, which uses the same spot. */
 	public static boolean isShowing() {
+		if (!onCraftingScreen()) return summoned;
 		return !isHidden() && !vanillaBookOpen();
+	}
+
+	private static boolean onCraftingScreen() {
+		Screen screen = Minecraft.getInstance().screen;
+		return screen == null || ScreenSupport.isCraftingScreen(screen);
 	}
 
 	public static void toggle() {
@@ -98,6 +110,14 @@ public final class ViewerState {
 
 	/** Opening the panel closes the vanilla recipe book, since both sit left of the container. */
 	private static void setHidden(boolean hidden) {
+		if (!onCraftingScreen()) {
+			// Just for this screen: the remembered open/closed state is for crafting screens.
+			if (summoned != hidden) return;
+			summoned = !hidden;
+			reset();
+			relayout();
+			return;
+		}
 		boolean changed = hidden != isHidden();
 		if (changed) {
 			ViewerConfig.get().panelOpen = !hidden;
@@ -140,6 +160,12 @@ public final class ViewerState {
 		materials = null;
 		view = null;
 		history.clear();
+	}
+
+	/** A new screen opened: start from the item list, with the almanac closed again if it's storage. */
+	public static void screenOpened() {
+		summoned = false;
+		reset();
 	}
 
 	/** Back to the first page of the item list. Done when a screen opens and when the panel is opened or closed. */

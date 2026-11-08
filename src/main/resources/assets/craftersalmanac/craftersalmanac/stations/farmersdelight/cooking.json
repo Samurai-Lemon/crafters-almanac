@@ -1,0 +1,11 @@
+{
+	"icon": "farmersdelight:cooking_pot",
+	"texture": "farmersdelight:textures/gui/jei/cooking_pot.png",
+	"texture_size": [256, 256],
+	"region": [0, 0, 116, 56],
+	"inputs": [[1, 1], [19, 1], [37, 1], [1, 19], [19, 19], [37, 19]],
+	"output": [95, 10],
+	"slots": {
+		"container": [63, 39]
+	}
+}

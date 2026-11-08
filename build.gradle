@@ -32,6 +32,9 @@ dependencies {
 	// Optional: lets players open our config from Mod Menu's mod list. Also loaded in runClient for testing.
 	modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 	modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+	// Other mods to test with in runClient (Farmer's Delight, Oritech...): drop their jars in test-mods/. Loom remaps
+	// them here, which works where the loader's own remapping of run/mods fails. Not part of the built mod.
+	modLocalRuntime fileTree(dir: 'test-mods', include: '*.jar')
 }
 
 processResources {

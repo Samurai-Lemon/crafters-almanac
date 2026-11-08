@@ -8,7 +8,6 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
@@ -46,9 +45,10 @@ public class ConfigScreen extends Screen {
 		toggle("quick_stack", config.quickStack, value -> config.quickStack = value);
 		toggle("tooltip_details", config.tooltipDetails, value -> config.tooltipDetails = value);
 		toggle("recipe_preview", config.recipePreview, value -> config.recipePreview = value);
+		toggle("match_station_screens", config.matchStationScreens, value -> config.matchStationScreens = value);
 
-		// Opened from a container screen (right-clicking our button): offer to switch the viewer off just there.
-		if (parent instanceof AbstractContainerScreen<?>) {
+		// Opened from a crafting screen (right-clicking our button): offer to switch the viewer off just there.
+		if (ScreenSupport.isCraftingScreen(parent)) {
 			String screenName = parent.getClass().getSimpleName();
 			place(CycleButton.onOffBuilder(!ScreenSupport.isDisabled(parent))
 					.withTooltip(current -> Tooltip.create(Component.translatable("craftersalmanac.config.show_on_screen.tooltip", screenName)))
