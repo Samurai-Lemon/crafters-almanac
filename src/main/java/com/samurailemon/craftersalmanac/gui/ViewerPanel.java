@@ -399,7 +399,7 @@ public class ViewerPanel extends AbstractWidget {
 		ItemStack result = favoriteResult(display);
 		CardFrames.draw(g, display, x, y, CONTENT_WIDTH, FAVORITE_ROW);
 		hits.add(Hit.button(x, y, CONTENT_WIDTH, FAVORITE_ROW, result.getHoverName(),
-				List.of(display.category().title().copy().withStyle(ChatFormatting.GRAY),
+				List.of(display.category().station().copy().withStyle(ChatFormatting.GRAY),
 						Component.translatable("craftersalmanac.favorite.open").withStyle(ChatFormatting.DARK_GRAY)),
 				() -> ViewerState.showRecipe(display, result)));
 
@@ -426,7 +426,7 @@ public class ViewerPanel extends AbstractWidget {
 		int textX = x + inner + 1 + 16 + 4;
 		int textWidth = nextX - 3 - textX;
 		smallText(g, result.getHoverName().getString(), textX, y + inner + 2, textWidth, Theme.cardText());
-		smallText(g, display.category().title().getString(), textX, y + inner + 9, textWidth, Theme.cardSubtext());
+		smallText(g, display.category().station().getString(), textX, y + inner + 9, textWidth, Theme.cardSubtext());
 	}
 
 	/**

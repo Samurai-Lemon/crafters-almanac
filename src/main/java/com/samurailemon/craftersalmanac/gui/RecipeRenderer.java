@@ -66,7 +66,17 @@ public final class RecipeRenderer {
 
 	/** {@code showXp} is false for the Shift preview, which puts the station's name where the XP goes. */
 	public static void render(GuiGraphics g, Font font, Display display, int x, int y, boolean showXp) {
-		card(g, display, x, y);
+		render(g, font, display, x, y, showXp, 0);
+	}
+
+	/**
+	 * {@code titleSpace} makes the card that much taller, with the contents moved down, for the Shift preview to name
+	 * the station on cards with no strip of their own for it.
+	 */
+	public static void render(GuiGraphics g, Font font, Display display, int x, int y, boolean showXp, int titleSpace) {
+		CardFrames.draw(g, display, x, y, display.width(), display.height() + titleSpace);
+		y += titleSpace;
+		art(g, display, x, y);
 		Card card = display.card();
 		switch (display.layout()) {
 			case COOKING -> {
@@ -228,9 +238,8 @@ public final class RecipeRenderer {
 		}
 	}
 
-	/** The frame (see CardFrames), and for art cards the middle of the station's screen inside it. */
-	private static void card(GuiGraphics g, Display display, int x, int y) {
-		CardFrames.draw(g, display, x, y, display.width(), display.height());
+	/** Art cards: the middle of the station's screen, inside the frame. */
+	private static void art(GuiGraphics g, Display display, int x, int y) {
 		Card card = display.card();
 		if (card == Card.PLAIN) return;
 		int b = Card.BORDER;

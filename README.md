@@ -29,7 +29,7 @@ panel doesn't open rather than cover the inventory.
 | Sort your inventory or a chest | The small button above the top-right of your inventory rows (survival inventory) or of a storage grid (chests, barrels, shulker boxes, hoppers, dispensers). The inventory one leaves the hotbar alone; choose the order in the settings |
 | Quick stack into a chest | The button left of a storage grid's sort button moves everything from your inventory that the chest (barrel, shulker box...) already has into it. Your hotbar stays as it is |
 | Item details | Hold **Alt** over an item: what food restores, mining speed, durability, how armor compares with what you're wearing, compost chance, fuel time and stack size |
-| Quick recipe | Hold **Shift** over an item to see its recipe beside the tooltip. Items with more than one recipe go through them every 2 seconds, with dots under the card showing how many there are |
+| Quick recipe | Hold **Shift** over an item to see its recipe beside the tooltip, with the station's name (Smithing Table, Cooking Pot...) along the top. Items with more than one recipe go through them every 2 seconds, with dots under the card showing how many there are |
 | Cheat mode | With cheats allowed (the world's **Allow Cheats**, or operator on a server), a button shows in the bottom-right corner of the item list (green while on). Turn it on and click an item to get a stack of it (right-click for one), like the creative menu, without the "Gave ..." chat lines. **R** and **U** still show recipes and uses |
 | See armor trims | Smithing trim recipes cycle through every armor piece and trim material, with an armor stand wearing the result |
 | Hide / show panel | **O**, or click the almanac button (it uses the vanilla recipe book art) |

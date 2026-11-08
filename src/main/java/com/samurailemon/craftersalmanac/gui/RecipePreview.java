@@ -37,6 +37,8 @@ public final class RecipePreview {
 	private static final float SCALE = 0.95F;
 	/** The header sits in the strip between the card's top border and its first slots. */
 	private static final int HEADER_Y = 6;
+	/** Room added above the contents of cards without a strip of their own, for the header. */
+	private static final int TITLE_SPACE = 9;
 	private static final String ELLIPSIS = "...";
 	private static final long CYCLE_MILLIS = 2000L;
 	/** Room under the card for the dots, or for "2/15" when there are too many recipes for dots. */
@@ -93,8 +95,9 @@ public final class RecipePreview {
 		if (recipes.isEmpty()) return;
 		int index = (int) ((now - since) / CYCLE_MILLIS % recipes.size());
 		Display display = recipes.get(index);
+		int titleSpace = hasStrip(display) ? 0 : TITLE_SPACE;
 		int width = Mth.ceil(display.width() * SCALE);
-		int cardHeight = Mth.ceil(display.height() * SCALE);
+		int cardHeight = Mth.ceil((display.height() + titleSpace) * SCALE);
 		int height = cardHeight + (recipes.size() > 1 ? FOOTER : 0);
 
 		int screenWidth = g.guiWidth();
@@ -132,7 +135,7 @@ public final class RecipePreview {
 		g.pose().translate(x, y, Z);
 		if (recipes.size() > 1) count(g, font, index, recipes.size(), width, cardHeight);
 		g.pose().scale(SCALE, SCALE, 1.0F);
-		RecipeRenderer.render(g, font, display, 0, 0, false);
+		RecipeRenderer.render(g, font, display, 0, 0, false, titleSpace);
 		header(g, font, display);
 		g.pose().popPose();
 	}
@@ -151,14 +154,18 @@ public final class RecipePreview {
 
 	/**
 	 * The crafting, furnace and brewing cards have an empty strip above their slots (the furnace's XP is left out of
-	 * previews to make room): it gets the station's name. Plain cards have no room, so they go without.
+	 * previews to make room). Other cards get one added (TITLE_SPACE).
 	 */
-	private static void header(GuiGraphics g, Font font, Display display) {
+	private static boolean hasStrip(Display display) {
 		Layout layout = display.layout();
-		if (layout != Layout.CRAFTING && layout != Layout.COOKING && layout != Layout.BREWING) return;
+		return layout == Layout.CRAFTING || layout == Layout.COOKING || layout == Layout.BREWING;
+	}
+
+	/** The station's name ("Smithing Table", "Cooking Pot") in the strip along the top of the card. */
+	private static void header(GuiGraphics g, Font font, Display display) {
 		int left = Card.BORDER + 1;
 		int room = display.width() - Card.BORDER - 1 - left;
-		String title = display.category().title().getString();
+		String title = display.category().station().getString();
 		if (font.width(title) > room) title = font.plainSubstrByWidth(title, room - font.width(ELLIPSIS)) + ELLIPSIS;
 		g.drawString(font, title, left, HEADER_Y, Theme.cardText(), false);
 	}

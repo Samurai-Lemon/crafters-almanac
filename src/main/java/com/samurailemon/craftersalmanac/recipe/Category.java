@@ -37,17 +37,20 @@ public final class Category implements Comparable<Category> {
 	public final RecipeType<?> type;
 	public final ItemStack icon;
 	private final Component title;
+	/** The machine's name, where it differs from the tab's ("Cooking Pot" for "Cooking"). */
+	private final Component station;
 	private final int order;
 	private final String id;
 
 	private Category(RecipeType<?> type, ItemStack icon, Component title, int order) {
-		this(type, icon, title, order, idOf(type));
+		this(type, icon, title, title, order, idOf(type));
 	}
 
-	private Category(RecipeType<?> type, ItemStack icon, Component title, int order, String id) {
+	private Category(RecipeType<?> type, ItemStack icon, Component title, Component station, int order, String id) {
 		this.type = type;
 		this.icon = icon;
 		this.title = title;
+		this.station = station;
 		this.order = order;
 		this.id = id;
 	}
@@ -58,7 +61,7 @@ public final class Category implements Comparable<Category> {
 	}
 
 	private static Category virtual(String id, ItemStack icon, Component title, int order) {
-		return new Category(null, icon, title, order, "craftersalmanac:" + id);
+		return new Category(null, icon, title, title, order, "craftersalmanac:" + id);
 	}
 
 	/** Brewing and fuel: not in the game's recipe list, so they can't be filled into a grid and have no recipe ID. */
@@ -74,6 +77,11 @@ public final class Category implements Comparable<Category> {
 
 	public Component title() {
 		return title;
+	}
+
+	/** What makes the recipes, for naming it on a card: the station block, or the tab's title if it isn't known. */
+	public Component station() {
+		return station;
 	}
 
 	/** The tab's ID: the recipe type's, or craftersalmanac:brewing and craftersalmanac:fuel for the virtual tabs. */
@@ -96,16 +104,18 @@ public final class Category implements Comparable<Category> {
 	}
 
 	private static Category modded(RecipeType<?> type, Recipe<?> recipe, ItemStack result) {
-		ItemStack icon = moddedIcon(type, recipe, result);
-		return new Category(type, icon, moddedTitle(type, icon), Integer.MAX_VALUE);
+		ItemStack machine = machine(type, recipe);
+		ItemStack icon = machine != null ? machine : result.copyWithCount(1);
+		Component title = moddedTitle(type, icon);
+		return new Category(type, icon, title, machine != null ? machine.getHoverName() : title, Integer.MAX_VALUE, idOf(type));
 	}
 
 	/**
-	 * The machine: a station layout's icon, else the recipe's toast symbol (mods usually set it to their machine; the
+	 * The machine: a station file's icon, else the recipe's toast symbol (mods usually set it to their machine; the
 	 * default is a crafting table, which would be misleading), else an item named after the type ("pulverizer_block"
-	 * for "pulverizer"), else what the recipe makes.
+	 * for "pulverizer"). Null if none of those is known; the tab then shows what the recipe makes.
 	 */
-	private static ItemStack moddedIcon(RecipeType<?> type, Recipe<?> recipe, ItemStack result) {
+	private static ItemStack machine(RecipeType<?> type, Recipe<?> recipe) {
 		ResourceLocation key = BuiltInRegistries.RECIPE_TYPE.getKey(type);
 		Station station = Station.of(key);
 		if (station != null && station.icon() != null && BuiltInRegistries.ITEM.containsKey(station.icon())) {
@@ -119,7 +129,7 @@ public final class Category implements Comparable<Category> {
 				if (BuiltInRegistries.ITEM.containsKey(machine)) return new ItemStack(BuiltInRegistries.ITEM.get(machine));
 			}
 		}
-		return result.copyWithCount(1);
+		return null;
 	}
 
 	/** A translation the mod provides if any, else the machine's name, else "Crushing (Create)" from the type ID. */
