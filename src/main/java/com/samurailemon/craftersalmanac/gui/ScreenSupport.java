@@ -8,21 +8,28 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.BeaconMenu;
+import net.minecraft.world.inventory.BrewingStandMenu;
 import net.minecraft.world.inventory.HorseInventoryMenu;
 import net.minecraft.world.inventory.MerchantMenu;
 import net.minecraft.world.inventory.Slot;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Which screens get the almanac, and how we fit into screens other mods make:
  * <ul>
  * <li>Crafting screens: the almanac is for making things, so it stays open on the inventory, crafting stations,
- * furnaces and other machines. On storage it only opens when R or U asks for an item's recipes or uses.</li>
+ * furnaces and other machines: screens with an output slot (one that takes no items). Everywhere else (storage,
+ * screens that only take an item to use it) it only opens when R or U asks for an item's recipes or uses.</li>
  * <li>Extras: some screens put slots or buttons outside their official container box (side tabs, upgrade slots,
  * accessory slots). We measure how far they reach after each init and remember it per screen class, so the next
  * layout leaves room for them.</li>
@@ -44,6 +51,7 @@ public final class ScreenSupport {
 	/** Things further than this from the container are probably not attached to it (e.g. a button in a screen corner). */
 	private static final int MAX_REACH = 100;
 	private static final Map<Class<?>, Extras> EXTRAS = new HashMap<>();
+	private static final Map<Class<?>, Boolean> HAS_OUTPUT = new HashMap<>();
 
 	private ScreenSupport() {
 	}
@@ -51,7 +59,8 @@ public final class ScreenSupport {
 	/**
 	 * Whether the almanac stays open on this screen: one for making things (the inventory, crafting table, furnaces,
 	 * smithing, brewing, modded machines), not storage (chests, barrels, shulker boxes, hoppers, dispensers, mods'
-	 * chests and backpacks), animal inventories, trading or beacons.
+	 * chests and backpacks), animal inventories, trading, beacons, or screens that only take an item to use it
+	 * (a mod's teleporter that takes ender pearls).
 	 */
 	public static boolean isCraftingScreen(Screen screen) {
 		if (screen instanceof InventoryScreen || screen instanceof CreativeModeInventoryScreen) return true;
@@ -60,11 +69,38 @@ public final class ScreenSupport {
 		if (InventorySorter.isStorage(menu) || menu instanceof HorseInventoryMenu || menu instanceof MerchantMenu || menu instanceof BeaconMenu) {
 			return false;
 		}
+		// Brewing makes things but has no output slot: the bottles go back where they came from.
+		if (menu instanceof BrewingStandMenu) return true;
 		int own = 0;
 		for (Slot slot : menu.slots) {
 			if (!(slot.container instanceof Inventory)) own++;
 		}
-		return own < STORAGE_SLOTS;
+		return own < STORAGE_SLOTS && HAS_OUTPUT.computeIfAbsent(screen.getClass(), c -> hasOutputSlot(menu));
+	}
+
+	/**
+	 * Whether the menu has a slot of its own that takes no item at all, which is where a crafting station or machine
+	 * puts what it made. A slot that only takes some items (fuel, an ender pearl, an upgrade) is an input.
+	 */
+	private static boolean hasOutputSlot(AbstractContainerMenu menu) {
+		List<Slot> own = new ArrayList<>();
+		for (Slot slot : menu.slots) {
+			if (!(slot.container instanceof Inventory)) own.add(slot);
+		}
+		if (own.isEmpty()) return false;
+		for (Item item : BuiltInRegistries.ITEM) {
+			ItemStack stack = item.getDefaultInstance();
+			if (stack.isEmpty()) continue;
+			own.removeIf(slot -> {
+				try {
+					return slot.mayPlace(stack);
+				} catch (RuntimeException e) {
+					return true; // A slot that can't even be asked isn't one we can count on.
+				}
+			});
+			if (own.isEmpty()) return false;
+		}
+		return true;
 	}
 
 	public static Extras extras(Screen screen) {
