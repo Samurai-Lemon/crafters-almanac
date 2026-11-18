@@ -150,9 +150,11 @@ public class CraftersAlmanac implements ClientModInitializer {
 
 		ViewerPanel panel = new ViewerPanel(screen);
 		Screens.getButtons(screen).add(panel);
+		ScreenEvents.beforeRender(screen).register((s, graphics, mouseX, mouseY, delta) ->
+				RecipePreview.beginFrame(() -> hoveredStack(screen, panel)));
 		ScreenEvents.afterRender(screen).register((s, graphics, mouseX, mouseY, delta) -> {
 			panel.renderTooltip(graphics, mouseX, mouseY);
-			RecipePreview.render(graphics, hoveredStack(screen, panel), mouseX, mouseY);
+			RecipePreview.render(graphics, mouseX, mouseY);
 		});
 		ScreenMouseEvents.allowMouseRelease(screen).register((s, mouseX, mouseY, button) -> {
 			if (!ViewerState.consumeRelease()) return true;
